@@ -1,18 +1,17 @@
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
+import { OpenRouter } from '@openrouter/sdk';
 import type { AIProvider, Message } from './types';
 
-export function makeOpenrouterProvider(
-  client: ReturnType<typeof createOpenRouter>
-): AIProvider {
+const MODEL = 'google/gemini-2.0-flash-lite-001';
+
+export function makeOpenrouterProvider(client: OpenRouter): AIProvider {
   return {
     async *streamMessage(messages: Message[]): AsyncGenerator<string> {
-      const result = streamText({
-        model: client('google/gemini-3.1-flash-lite-preview'),
-        messages,
+      const stream = await client.chat.send({
+        chatGenerationParams: { model: MODEL, messages, stream: true },
       });
-      for await (const chunk of result.textStream) {
-        yield chunk;
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) yield content;
       }
     },
   };

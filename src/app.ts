@@ -2,15 +2,13 @@ import { initDb } from './db';
 
 import { AIProvider } from './ai/';
 import { makeOpenrouterProvider } from './ai/openrouterProvider';
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { OpenRouter } from '@openrouter/sdk';
 
 class _App {
   private ai: AIProvider | null = null;
 
   async init() {
-    const client = createOpenRouter({
-      apiKey: process.env.EXPO_PUBLIC_OPENROUTER_API_KEY,
-    });
+    const client = new OpenRouter({ apiKey: process.env.EXPO_PUBLIC_OPENROUTER_API_KEY });
     this.ai = makeOpenrouterProvider(client);
 
     await initDb()
