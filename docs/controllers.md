@@ -17,11 +17,13 @@ export type ChatMessage = {
   content: string;
   streaming?: boolean;
   status?: 'ok' | 'pending' | 'failed';
+  toolStatus?: string;   // set while a tool is executing, cleared on done
 };
 
 export type SessionEvent =
   | { type: 'add_messages'; userMsg: ChatMessage; aiMsg: ChatMessage }
   | { type: 'chunk'; id: number; content: string }
+  | { type: 'tool_status'; label: string }   // e.g. "Fetching notes for Acme…"
   | { type: 'done'; id: number; status: 'ok' | 'failed' };
 
 class ConversationSession {
