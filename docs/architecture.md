@@ -26,9 +26,9 @@ Cosailor is a mobile-first, multimodal AI chat app for field sales reps. It acts
 - **Persistence:** SQLite (via `expo-sqlite`)
 - **Navigation:** @react-navigation/native
 
-## Session Layer
+## Controller Layer
 
-More details in [sessions.md](sessions.md)
+More details in [controllers.md](controllerss.md)
 
 - `ConversationSession` — manages one active session (send, retry, reset, resume)
 - `Sessions` — read-only helpers for listing and loading past sessions

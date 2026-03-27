@@ -1,6 +1,6 @@
-# Session Layer
+# Controllers
 
-The session layer sits between the UI screens and the database/AI. It owns all session lifecycle logic so that screen components stay UI-only.
+Controllers sits between the UI screens and the database/AI. They owns all session lifecycle logic and interaction with db and AI so that screen components stay UI-only.
 
 ## Modules
 
