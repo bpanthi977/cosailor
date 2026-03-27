@@ -1,23 +1,46 @@
-import type { AIProvider, Message } from './types';
+import type {
+  AIProvider,
+  AIStreamEvent,
+  AssistantToolCallMessage,
+  ProviderMessage,
+  ToolDef,
+  ToolResultMessage,
+} from './types';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'google/gemini-2.0-flash-lite-001';
 
-export function makeOpenrouterProvider(apiKey: string): AIProvider {
+type Tools = {
+  defs: ToolDef[];
+  execute: (name: string, args: object) => Promise<string>;
+};
+
+type PendingToolCall = { id: string; name: string; argsJson: string };
+
+export function makeOpenrouterProvider(apiKey: string, tools?: Tools): AIProvider {
   return {
-    streamMessage: (messages) => xhrStream(apiKey, messages),
+    streamMessage: (messages) => xhrStream(apiKey, messages, tools),
   };
 }
 
-async function* xhrStream(apiKey: string, messages: Message[]): AsyncGenerator<string> {
+async function* xhrStream(
+  apiKey: string,
+  messages: ProviderMessage[],
+  tools?: Tools
+): AsyncGenerator<AIStreamEvent> {
   // React Native's fetch buffers the full body before resolving, so it hangs
   // on streaming responses. XMLHttpRequest.onprogress fires incrementally.
-  const pending: string[] = [];
+  const pending: AIStreamEvent[] = [];
   let notify: (() => void) | null = null;
   let done = false;
   let xhrError: string | null = null;
   let cursor = 0;
   let lineBuffer = '';
+
+  let pendingTool: PendingToolCall | null = null;
+
+  // Tool calls are async but parseLine is sync — queue them for after XHR loop
+  const resolvedToolCalls: Array<{ tool: PendingToolCall; args: object }> = [];
 
   const parseLine = (line: string) => {
     if (!line.startsWith('data: ')) return;
@@ -25,10 +48,30 @@ async function* xhrStream(apiKey: string, messages: Message[]): AsyncGenerator<s
     if (data === '[DONE]') return;
     try {
       const json = JSON.parse(data);
+
+      // Accumulate text content
       const content = json.choices?.[0]?.delta?.content;
       if (content) {
-        pending.push(content);
+        pending.push({ type: 'text', content });
         notify?.();
+      }
+
+      // Accumulate tool call delta
+      const tc = json.choices?.[0]?.delta?.tool_calls?.[0];
+      if (tc) {
+        if (tc.id) pendingTool = { id: tc.id, name: tc.function?.name ?? '', argsJson: '' };
+        if (pendingTool && tc.function?.arguments) pendingTool.argsJson += tc.function.arguments;
+      }
+
+      // Detect end of tool call
+      const finishReason = json.choices?.[0]?.finish_reason;
+      if (finishReason === 'tool_calls' && pendingTool) {
+        try {
+          resolvedToolCalls.push({ tool: pendingTool, args: JSON.parse(pendingTool.argsJson) });
+        } catch {
+          resolvedToolCalls.push({ tool: pendingTool, args: {} });
+        }
+        pendingTool = null;
       }
     } catch {}
   };
@@ -44,6 +87,11 @@ async function* xhrStream(apiKey: string, messages: Message[]): AsyncGenerator<s
   xhr.open('POST', OPENROUTER_URL);
   xhr.setRequestHeader('Authorization', `Bearer ${apiKey}`);
   xhr.setRequestHeader('Content-Type', 'application/json');
+
+  const body: Record<string, unknown> = { model: MODEL, messages, stream: true };
+  if (tools) {
+    body.tools = tools.defs.map(d => ({ type: 'function', function: d }));
+  }
 
   xhr.onprogress = () => {
     const newText = xhr.responseText.slice(cursor);
@@ -63,7 +111,7 @@ async function* xhrStream(apiKey: string, messages: Message[]): AsyncGenerator<s
     notify?.();
   };
 
-  xhr.send(JSON.stringify({ model: MODEL, messages, stream: true }));
+  xhr.send(JSON.stringify(body));
 
   while (true) {
     if (pending.length > 0) {
@@ -78,4 +126,24 @@ async function* xhrStream(apiKey: string, messages: Message[]): AsyncGenerator<s
   }
 
   if (xhrError) throw new Error(xhrError);
+
+  // Handle tool calls after XHR is done (each tool call triggers a new stream)
+  for (const { tool, args } of resolvedToolCalls) {
+    if (!tools) break;
+    yield { type: 'tool_start', name: tool.name, args };
+    const result = await tools.execute(tool.name, args);
+    yield { type: 'tool_done', name: tool.name, result };
+
+    const toolCallMsg: AssistantToolCallMessage = {
+      role: 'assistant',
+      content: null,
+      tool_calls: [{ id: tool.id, type: 'function', function: { name: tool.name, arguments: tool.argsJson } }],
+    };
+    const toolResultMsg: ToolResultMessage = {
+      role: 'tool',
+      content: result,
+      tool_call_id: tool.id,
+    };
+    yield* xhrStream(apiKey, [...messages, toolCallMsg, toolResultMsg], tools);
+  }
 }

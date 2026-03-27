@@ -7,6 +7,8 @@ import {
   appendMessageContent,
   getMessagesForSession,
   updateSessionTitle,
+  createToolCall,
+  updateToolCall,
 } from './db';
 
 export type ChatMessage = {
@@ -15,11 +17,13 @@ export type ChatMessage = {
   content: string;
   streaming?: boolean;
   status?: 'ok' | 'pending' | 'failed';
+  toolStatus?: string;
 };
 
 export type SessionEvent =
   | { type: 'add_messages'; userMsg: ChatMessage; aiMsg: ChatMessage }
   | { type: 'chunk'; id: number; content: string }
+  | { type: 'tool_status'; label: string }
   | { type: 'done'; id: number; status: 'ok' | 'failed' };
 
 export class ConversationSession {
@@ -91,18 +95,40 @@ export class ConversationSession {
     conversation: Message[]
   ): AsyncGenerator<SessionEvent> {
     let fullContent = '';
+    let pendingToolCallId: number | null = null;
     try {
       const stream = App.getAI().streamMessage(conversation);
-      for await (const chunk of stream) {
-        fullContent += chunk;
-        yield { type: 'chunk', id: aiMsgId, content: fullContent };
+      for await (const event of stream) {
+        if (event.type === 'text') {
+          fullContent += event.content;
+          yield { type: 'chunk', id: aiMsgId, content: fullContent };
+        } else if (event.type === 'tool_start') {
+          pendingToolCallId = await createToolCall(aiMsgId, event.name, event.args);
+          yield { type: 'tool_status', label: toolLabel(event.name, event.args) };
+        } else if (event.type === 'tool_done' && pendingToolCallId !== null) {
+          await updateToolCall(pendingToolCallId, event.result, 'ok');
+          pendingToolCallId = null;
+        }
       }
       await appendMessageContent(aiMsgId, fullContent);
       await updateMessageStatus(aiMsgId, 'ok');
       yield { type: 'done', id: aiMsgId, status: 'ok' };
     } catch {
+      if (pendingToolCallId !== null) {
+        await updateToolCall(pendingToolCallId, '', 'failed');
+      }
       await updateMessageStatus(aiMsgId, 'failed');
       yield { type: 'done', id: aiMsgId, status: 'failed' };
     }
+  }
+}
+
+function toolLabel(name: string, args: object): string {
+  const a = args as Record<string, string>;
+  switch (name) {
+    case 'list_customers': return 'Listing customers…';
+    case 'fetch_notes': return `Fetching notes for ${a.customer_name}…`;
+    case 'save_note': return `Saving note for ${a.customer_name}…`;
+    default: return `Calling ${name}…`;
   }
 }

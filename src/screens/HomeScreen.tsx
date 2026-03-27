@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ConversationSession, type ChatMessage, SessionEvent } from '../ConversationSession';
+import { ConversationSession, type ChatMessage, type SessionEvent } from '../ConversationSession';
 import { getSessions, type Session } from '../Sessions';
 import SessionSidebar from '../components/SessionSidebar';
 import { colors, radius, spacing, typography } from '../theme';
@@ -62,10 +62,14 @@ export default function HomeScreen() {
           setMessages(prev =>
             prev.map(m => m.id === event.id ? { ...m, content: event.content } : m)
           );
+        } else if (event.type === 'tool_status') {
+          setMessages(prev =>
+            prev.map(m => m.streaming ? { ...m, toolStatus: event.label } : m)
+          );
         } else if (event.type === 'done') {
           setMessages(prev =>
             prev.map(m =>
-              m.id === event.id ? { ...m, streaming: false, status: event.status } : m
+              m.id === event.id ? { ...m, streaming: false, status: event.status, toolStatus: undefined } : m
             )
           );
         }
@@ -114,6 +118,9 @@ export default function HomeScreen() {
     return (
       <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
         <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
+          {item.toolStatus ? (
+            <Text style={styles.toolStatusText}>{item.toolStatus}</Text>
+          ) : null}
           <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextAI]}>
             {displayText}
           </Text>
@@ -249,6 +256,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     ...typography.base,
     fontWeight: '600',
+  },
+  toolStatusText: {
+    color: colors.mutedForeground,
+    ...typography.base,
+    fontStyle: 'italic',
+    marginBottom: spacing.xs,
   },
   inputBar: {
     flexDirection: 'row',
