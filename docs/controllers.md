@@ -11,19 +11,28 @@ Manages one conversation: creating it lazily on first message, streaming AI resp
 Auto-sets the session title (truncated to 40 chars) from the first user message.
 
 ```ts
+export type ToolStep = {
+  id: number;          // DB tool_calls row id
+  name: string;
+  args: object;
+  status: 'running' | 'ok' | 'failed';
+  result?: string;
+};
+
 export type ChatMessage = {
   id?: number;
   role: 'user' | 'assistant';
   content: string;
   streaming?: boolean;
   status?: 'ok' | 'pending' | 'failed';
-  toolStatus?: string;   // set while a tool is executing, cleared on done
+  toolSteps?: ToolStep[];  // populated live during streaming; restored from DB on session load
 };
 
 export type SessionEvent =
   | { type: 'add_messages'; userMsg: ChatMessage; aiMsg: ChatMessage }
   | { type: 'chunk'; id: number; content: string }
-  | { type: 'tool_status'; label: string }   // e.g. "Fetching notes for Acme…"
+  | { type: 'tool_start'; msgId: number; step: ToolStep }    // step.status === 'running'
+  | { type: 'tool_done'; msgId: number; stepId: number; result: string; status: 'ok' | 'failed' }
   | { type: 'done'; id: number; status: 'ok' | 'failed' };
 
 class ConversationSession {

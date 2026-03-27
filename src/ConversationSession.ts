@@ -9,7 +9,16 @@ import {
   updateSessionTitle,
   createToolCall,
   updateToolCall,
+  getToolCallsForMessage,
 } from './db';
+
+export type ToolStep = {
+  id: number;
+  name: string;
+  args: object;
+  status: 'running' | 'ok' | 'failed';
+  result?: string;
+};
 
 export type ChatMessage = {
   id?: number;
@@ -17,13 +26,14 @@ export type ChatMessage = {
   content: string;
   streaming?: boolean;
   status?: 'ok' | 'pending' | 'failed';
-  toolStatus?: string;
+  toolSteps?: ToolStep[];
 };
 
 export type SessionEvent =
   | { type: 'add_messages'; userMsg: ChatMessage; aiMsg: ChatMessage }
   | { type: 'chunk'; id: number; content: string }
-  | { type: 'tool_status'; label: string }
+  | { type: 'tool_start'; msgId: number; step: ToolStep }
+  | { type: 'tool_done'; msgId: number; stepId: number; result: string; status: 'ok' | 'failed' }
   | { type: 'done'; id: number; status: 'ok' | 'failed' };
 
 export class ConversationSession {
@@ -36,14 +46,31 @@ export class ConversationSession {
   async loadMessages(): Promise<ChatMessage[]> {
     if (this.sessionId === null) return [];
     const dbMsgs = await getMessagesForSession(this.sessionId);
-    return dbMsgs
-      .filter(m => m.role === 'user' || m.role === 'assistant')
-      .map(m => ({
-        id: m.id,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        status: m.status,
-      }));
+    return Promise.all(
+      dbMsgs
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(async m => {
+          const msg: ChatMessage = {
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            status: m.status,
+          };
+          if (m.role === 'assistant') {
+            const toolCalls = await getToolCallsForMessage(m.id);
+            if (toolCalls.length > 0) {
+              msg.toolSteps = toolCalls.map(tc => ({
+                id: tc.id,
+                name: tc.tool_name,
+                args: JSON.parse(tc.arguments || '{}'),
+                status: tc.status === 'ok' ? 'ok' : tc.status === 'failed' ? 'failed' : 'running',
+                result: tc.result ?? undefined,
+              }));
+            }
+          }
+          return msg;
+        })
+    );
   }
 
   private async ensureSession(): Promise<number> {
@@ -104,9 +131,14 @@ export class ConversationSession {
           yield { type: 'chunk', id: aiMsgId, content: fullContent };
         } else if (event.type === 'tool_start') {
           pendingToolCallId = await createToolCall(aiMsgId, event.name, event.args);
-          yield { type: 'tool_status', label: toolLabel(event.name, event.args) };
+          yield {
+            type: 'tool_start',
+            msgId: aiMsgId,
+            step: { id: pendingToolCallId, name: event.name, args: event.args, status: 'running' },
+          };
         } else if (event.type === 'tool_done' && pendingToolCallId !== null) {
           await updateToolCall(pendingToolCallId, event.result, 'ok');
+          yield { type: 'tool_done', msgId: aiMsgId, stepId: pendingToolCallId, result: event.result, status: 'ok' };
           pendingToolCallId = null;
         }
       }
@@ -120,15 +152,5 @@ export class ConversationSession {
       await updateMessageStatus(aiMsgId, 'failed');
       yield { type: 'done', id: aiMsgId, status: 'failed' };
     }
-  }
-}
-
-function toolLabel(name: string, args: object): string {
-  const a = args as Record<string, string>;
-  switch (name) {
-    case 'list_customers': return 'Listing customers…';
-    case 'fetch_notes': return `Fetching notes for ${a.customer_name}…`;
-    case 'save_note': return `Saving note for ${a.customer_name}…`;
-    default: return `Calling ${name}…`;
   }
 }

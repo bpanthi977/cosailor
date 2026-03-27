@@ -71,14 +71,33 @@ export default function HomeScreen() {
           setMessages(prev =>
             prev.map(m => m.id === event.id ? { ...m, content: event.content } : m)
           );
-        } else if (event.type === 'tool_status') {
+        } else if (event.type === 'tool_start') {
           setMessages(prev =>
-            prev.map(m => m.streaming ? { ...m, toolStatus: event.label } : m)
+            prev.map(m =>
+              m.id === event.msgId
+                ? { ...m, toolSteps: [...(m.toolSteps ?? []), event.step] }
+                : m
+            )
+          );
+        } else if (event.type === 'tool_done') {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === event.msgId
+                ? {
+                    ...m,
+                    toolSteps: m.toolSteps?.map(s =>
+                      s.id === event.stepId
+                        ? { ...s, status: event.status, result: event.result }
+                        : s
+                    ),
+                  }
+                : m
+            )
           );
         } else if (event.type === 'done') {
           setMessages(prev =>
             prev.map(m =>
-              m.id === event.id ? { ...m, streaming: false, status: event.status, toolStatus: undefined } : m
+              m.id === event.id ? { ...m, streaming: false, status: event.status } : m
             )
           );
         }
