@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConversationSession, type ChatMessage, SessionEvent } from '../ConversationSession';
-import { getSessions, loadSessionMessages, type Session } from '../Sessions';
+import { getSessions, type Session } from '../Sessions';
 import SessionSidebar from '../components/SessionSidebar';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -26,7 +26,7 @@ export default function HomeScreen() {
 
   const listRef = useRef<FlatList>(null);
   const cursorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const session = useRef(new ConversationSession()).current;
+  const sessionRef = useRef(new ConversationSession());
 
   // Blink cursor while streaming
   useEffect(() => {
@@ -79,13 +79,13 @@ export default function HomeScreen() {
     const text = inputText.trim();
     if (!text || isStreaming) return;
     setInputText('');
-    await applyEvents(session.sendMessage(text, messages));
-  }, [inputText, isStreaming, messages, session, applyEvents]);
+    await applyEvents(sessionRef.current.sendMessage(text, messages));
+  }, [inputText, isStreaming, messages, applyEvents]);
 
   const handleRetry = useCallback(async (failedMsgId: number) => {
     if (isStreaming) return;
-    await applyEvents(session.retryMessage(failedMsgId));
-  }, [isStreaming, session, applyEvents]);
+    await applyEvents(sessionRef.current.retryMessage(failedMsgId));
+  }, [isStreaming, applyEvents]);
 
   const openSidebar = useCallback(async () => {
     setSessions(await getSessions());
@@ -94,15 +94,16 @@ export default function HomeScreen() {
 
   const handleSelectSession = useCallback(async (s: Session) => {
     setSidebarOpen(false);
-    session.loadExistingSession(s.id);
-    setMessages(await loadSessionMessages(s.id));
-  }, [session]);
+    const cs = new ConversationSession(s.id);
+    sessionRef.current = cs;
+    setMessages(await cs.loadMessages());
+  }, []);
 
   const handleNewConversation = useCallback(() => {
     setSidebarOpen(false);
-    session.reset();
+    sessionRef.current = new ConversationSession();
     setMessages([]);
-  }, [session]);
+  }, []);
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';

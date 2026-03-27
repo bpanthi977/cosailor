@@ -23,14 +23,23 @@ export type SessionEvent =
   | { type: 'done'; id: number; status: 'ok' | 'failed' };
 
 export class ConversationSession {
-  private sessionId: number | null = null;
+  private sessionId: number | null;
 
-  reset() {
-    this.sessionId = null;
+  constructor(sessionId?: number) {
+    this.sessionId = sessionId ?? null;
   }
 
-  loadExistingSession(id: number) {
-    this.sessionId = id;
+  async loadMessages(): Promise<ChatMessage[]> {
+    if (this.sessionId === null) return [];
+    const dbMsgs = await getMessagesForSession(this.sessionId);
+    return dbMsgs
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        status: m.status,
+      }));
   }
 
   private async ensureSession(): Promise<number> {

@@ -28,10 +28,10 @@ Cosailor is a mobile-first, multimodal AI chat app for field sales reps. It acts
 
 ## Controller Layer
 
-More details in [controllers.md](controllerss.md)
+More details in [controllers.md](controllers.md)
 
-- `ConversationSession` — manages one active session (send, retry, reset, resume)
-- `Sessions` — read-only helpers for listing and loading past sessions
+- `ConversationSession` — manages one active session (send, retry, load messages); constructed with an optional existing session ID to resume
+- `Sessions` — read-only helpers for listing past sessions
 
 ## UI Structure
 
