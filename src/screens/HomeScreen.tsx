@@ -1,37 +1,228 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { activeProvider, Message } from '../ai/provider';
+import { colors, radius, spacing, typography } from '../theme';
+
+type ChatMessage = Message & { streaming?: boolean };
+
 export default function HomeScreen() {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [cursorVisible, setCursorVisible] = useState(true);
+
+  const listRef = useRef<FlatList>(null);
+  const cursorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Blink cursor while streaming
+  useEffect(() => {
+    if (isStreaming) {
+      cursorInterval.current = setInterval(() => {
+        setCursorVisible(v => !v);
+      }, 500);
+    } else {
+      if (cursorInterval.current) {
+        clearInterval(cursorInterval.current);
+        cursorInterval.current = null;
+      }
+      setCursorVisible(true);
+    }
+    return () => {
+      if (cursorInterval.current) clearInterval(cursorInterval.current);
+    };
+  }, [isStreaming]);
+
+  const scrollToEnd = useCallback(() => {
+    listRef.current?.scrollToEnd({ animated: true });
+  }, []);
+
+  const handleSend = useCallback(async () => {
+    const text = inputText.trim();
+    if (!text || isStreaming) return;
+
+    const userMsg: ChatMessage = { role: 'user', content: text };
+    const aiMsg: ChatMessage = { role: 'assistant', content: '', streaming: true };
+
+    setMessages(prev => [...prev, userMsg, aiMsg]);
+    setInputText('');
+    setIsStreaming(true);
+
+    // Build message history to pass to provider (exclude the empty ai placeholder)
+    const history: Message[] = [...messages, userMsg];
+
+    try {
+      const stream = activeProvider.streamMessage(history);
+      for await (const chunk of stream) {
+        setMessages(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === 'assistant') {
+            updated[updated.length - 1] = { ...last, content: last.content + chunk };
+          }
+          return updated;
+        });
+      }
+    } finally {
+      setMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') {
+          updated[updated.length - 1] = { ...last, streaming: false };
+        }
+        return updated;
+      });
+      setIsStreaming(false);
+    }
+  }, [inputText, isStreaming, messages]);
+
+  const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
+    const isUser = item.role === 'user';
+    const displayText = item.streaming
+      ? item.content + (cursorVisible ? '|' : ' ')
+      : item.content;
+
+    return (
+      <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
+        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
+          <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextAI]}>
+            {displayText}
+          </Text>
+        </View>
+      </View>
+    );
+  }, [cursorVisible]);
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Cosailor</Text>
-        <Text style={styles.subtitle}>Your AI sales co-pilot</Text>
-      </View>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(_, i) => String(i)}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={scrollToEnd}
+          onLayout={scrollToEnd}
+        />
+        <View style={styles.inputBar}>
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Message..."
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            onSubmitEditing={handleSend}
+            submitBehavior="newline"
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, (!inputText.trim() || isStreaming) && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || isStreaming}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: {
     flex: 1,
     backgroundColor: '#09090b',
   },
-  content: {
+  messageList: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
+  bubbleRow: {
+    marginVertical: spacing.xs,
+    flexDirection: 'row',
+  },
+  bubbleRowUser: {
+    justifyContent: 'flex-end',
+  },
+  bubbleRowAI: {
+    justifyContent: 'flex-start',
+  },
+  bubble: {
+    maxWidth: '75%',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
+  },
+  bubbleUser: {
+    backgroundColor: colors.primary,
+    borderBottomRightRadius: radius.sm,
+  },
+  bubbleAI: {
+    backgroundColor: '#1c1c1e',
+    borderBottomLeftRadius: radius.sm,
+  },
+  bubbleText: {
+    ...typography.base,
+  },
+  bubbleTextUser: {
+    color: colors.primaryForeground,
+  },
+  bubbleTextAI: {
+    color: '#fafafa',
+  },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#27272a',
+    gap: spacing.sm,
+  },
+  input: {
     flex: 1,
+    minHeight: 40,
+    maxHeight: 120,
+    backgroundColor: '#18181b',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: '#fafafa',
+    ...typography.base,
+  },
+  sendButton: {
+    height: 40,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#fafafa',
-    letterSpacing: -0.5,
+  sendButtonDisabled: {
+    opacity: 0.4,
   },
-  subtitle: {
-    marginTop: 8,
-    fontSize: 16,
-    color: '#71717a',
+  sendButtonText: {
+    color: colors.primaryForeground,
+    fontWeight: '600',
+    ...typography.base,
   },
 });
