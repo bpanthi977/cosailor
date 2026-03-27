@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { ChatMessage, ToolStep } from '../ConversationSession';
+import { saveFeedback } from '../db';
 import { colors, radius, spacing, typography } from '../theme';
 
 type Props = {
@@ -12,6 +13,27 @@ type Props = {
 export default function MessageBubble({ message, cursorVisible, onRetry }: Props) {
   const isUser = message.role === 'user';
   const [expanded, setExpanded] = useState(false);
+  const [rating, setRating] = useState<1 | -1 | null>(null);
+  const [showComment, setShowComment] = useState(false);
+  const [comment, setComment] = useState('');
+
+  const showFeedback = !isUser && !message.streaming && message.id !== undefined;
+
+  async function handleRating(value: 1 | -1) {
+    if (rating === value) return;
+    setRating(value);
+    if (value === 1) {
+      setShowComment(false);
+      await saveFeedback(message.id!, 1);
+    } else {
+      setShowComment(true);
+    }
+  }
+
+  async function submitComment() {
+    await saveFeedback(message.id!, -1, comment.trim() || undefined);
+    setShowComment(false);
+  }
   const displayText = message.streaming
     ? message.content + (cursorVisible ? '|' : ' ')
     : message.content;
@@ -45,6 +67,34 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
         <TouchableOpacity onPress={() => onRetry(message.id!)} style={styles.retryButton}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
+      )}
+      {showFeedback && (
+        <>
+          <View style={styles.feedbackRow}>
+            <TouchableOpacity onPress={() => handleRating(1)} style={styles.thumbBtn}>
+              <Text style={[styles.thumbText, rating === 1 && styles.thumbSelected]}>👍</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleRating(-1)} style={styles.thumbBtn}>
+              <Text style={[styles.thumbText, rating === -1 && styles.thumbSelected]}>👎</Text>
+            </TouchableOpacity>
+          </View>
+          {showComment && (
+            <View style={styles.commentRow}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Optional comment…"
+                placeholderTextColor={colors.mutedForeground}
+                value={comment}
+                onChangeText={setComment}
+                returnKeyType="send"
+                onSubmitEditing={submitComment}
+              />
+              <TouchableOpacity onPress={submitComment} style={styles.submitBtn}>
+                <Text style={styles.submitText}>Submit</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
       )}
     </View>
   );
@@ -177,6 +227,47 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   retryText: {
+    color: colors.primary,
+    ...typography.base,
+    fontWeight: '600',
+  },
+  feedbackRow: {
+    flexDirection: 'row',
+    marginTop: spacing.xs,
+    gap: spacing.sm,
+  },
+  thumbBtn: {
+    padding: spacing.xs,
+  },
+  thumbText: {
+    fontSize: 16,
+    opacity: 0.35,
+  },
+  thumbSelected: {
+    opacity: 1,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    marginTop: spacing.xs,
+    alignItems: 'center',
+    gap: spacing.sm,
+    maxWidth: '75%',
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.mutedForeground,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    color: '#fafafa',
+    ...typography.base,
+  },
+  submitBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  submitText: {
     color: colors.primary,
     ...typography.base,
     fontWeight: '600',
