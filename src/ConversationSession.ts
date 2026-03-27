@@ -46,7 +46,7 @@ export class ConversationSession {
       ...history.map(m => ({ role: m.role, content: m.content })),
       { role: 'user', content: text },
     ];
-    yield* this.streamIntoMessage(aiMsgId, aiHistory);
+    yield* this.streamResponse(aiMsgId, aiHistory);
   }
 
   async *retryMessage(failedMsgId: number): AsyncGenerator<SessionEvent> {
@@ -61,16 +61,16 @@ export class ConversationSession {
       .slice(0, failedIdx)
       .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-    yield* this.streamIntoMessage(failedMsgId, history);
+    yield* this.streamResponse(failedMsgId, history);
   }
 
-  private async *streamIntoMessage(
+  private async *streamResponse(
     aiMsgId: number,
-    history: Message[]
+    conversation: Message[]
   ): AsyncGenerator<SessionEvent> {
     let fullContent = '';
     try {
-      const stream = App.getAI().streamMessage(history);
+      const stream = App.getAI().streamMessage(conversation);
       for await (const chunk of stream) {
         fullContent += chunk;
         yield { type: 'chunk', id: aiMsgId, content: fullContent };

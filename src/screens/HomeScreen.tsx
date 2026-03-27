@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ConversationSession, type ChatMessage } from '../ConversationSession';
+import { ConversationSession, type ChatMessage, SessionEvent } from '../ConversationSession';
 import { colors, radius, spacing, typography } from '../theme';
 
 export default function HomeScreen() {
@@ -47,7 +47,7 @@ export default function HomeScreen() {
   }, []);
 
   const applyEvents = useCallback(async (
-    gen: AsyncGenerator<import('../ConversationSession').SessionEvent>
+    gen: AsyncGenerator<SessionEvent>
   ) => {
     setIsStreaming(true);
     try {
