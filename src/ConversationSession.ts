@@ -6,6 +6,7 @@ import {
   updateMessageStatus,
   appendMessageContent,
   getMessagesForSession,
+  updateSessionTitle,
 } from './db';
 
 export type ChatMessage = {
@@ -24,6 +25,14 @@ export type SessionEvent =
 export class ConversationSession {
   private sessionId: number | null = null;
 
+  reset() {
+    this.sessionId = null;
+  }
+
+  loadExistingSession(id: number) {
+    this.sessionId = id;
+  }
+
   private async ensureSession(): Promise<number> {
     if (this.sessionId === null) {
       this.sessionId = await createSession();
@@ -32,7 +41,11 @@ export class ConversationSession {
   }
 
   async *sendMessage(text: string, history: ChatMessage[]): AsyncGenerator<SessionEvent> {
+    const isNew = this.sessionId === null;
     const sid = await this.ensureSession();
+    if (isNew) {
+      void updateSessionTitle(sid, text.slice(0, 40));
+    }
     const userMsgId = await createMessage(sid, 'user', text, 'ok');
     const aiMsgId = await createMessage(sid, 'assistant', '', 'pending');
 

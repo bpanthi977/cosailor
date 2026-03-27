@@ -12,6 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConversationSession, type ChatMessage, SessionEvent } from '../ConversationSession';
+import { getSessions, loadSessionMessages, type Session } from '../Sessions';
+import SessionSidebar from '../components/SessionSidebar';
 import { colors, radius, spacing, typography } from '../theme';
 
 export default function HomeScreen() {
@@ -19,6 +21,8 @@ export default function HomeScreen() {
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>([]);
 
   const listRef = useRef<FlatList>(null);
   const cursorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -83,6 +87,23 @@ export default function HomeScreen() {
     await applyEvents(session.retryMessage(failedMsgId));
   }, [isStreaming, session, applyEvents]);
 
+  const openSidebar = useCallback(async () => {
+    setSessions(await getSessions());
+    setSidebarOpen(true);
+  }, []);
+
+  const handleSelectSession = useCallback(async (s: Session) => {
+    setSidebarOpen(false);
+    session.loadExistingSession(s.id);
+    setMessages(await loadSessionMessages(s.id));
+  }, [session]);
+
+  const handleNewConversation = useCallback(() => {
+    setSidebarOpen(false);
+    session.reset();
+    setMessages([]);
+  }, [session]);
+
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
     const displayText = item.streaming
@@ -112,6 +133,11 @@ export default function HomeScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={openSidebar} style={styles.menuButton}>
+            <Text style={styles.menuIcon}>☰</Text>
+          </TouchableOpacity>
+        </View>
         <FlatList
           ref={listRef}
           data={messages}
@@ -141,12 +167,34 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <SessionSidebar
+        visible={sidebarOpen}
+        sessions={sessions}
+        onClose={() => setSidebarOpen(false)}
+        onSelectSession={handleSelectSession}
+        onNewConversation={handleNewConversation}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: '#27272a',
+  },
+  menuButton: {
+    padding: spacing.sm,
+  },
+  menuIcon: {
+    color: '#fafafa',
+    fontSize: 20,
+  },
   container: {
     flex: 1,
     backgroundColor: '#09090b',
