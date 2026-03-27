@@ -8,7 +8,7 @@ export function makeOpenrouterProvider(
   return {
     async *streamMessage(messages: Message[]): AsyncGenerator<string> {
       const result = streamText({
-        model: client('anthropic/claude-3.5-haiku'),
+        model: client('google/gemini-3.1-flash-lite-preview'),
         messages,
       });
       for await (const chunk of result.textStream) {
