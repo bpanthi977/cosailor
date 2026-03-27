@@ -5,7 +5,6 @@ import {
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,8 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ConversationSession, type ChatMessage, type SessionEvent } from '../ConversationSession';
 import { getSessions, type Session } from '../Sessions';
+import { VoiceInput } from '../VoiceInput';
+import InputBar from '../components/InputBar';
+import MessageBubble from '../components/MessageBubble';
 import SessionSidebar from '../components/SessionSidebar';
-import { colors, radius, spacing, typography } from '../theme';
+import { spacing } from '../theme';
 
 export default function HomeScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -23,10 +25,19 @@ export default function HomeScreen() {
   const [cursorVisible, setCursorVisible] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
 
   const listRef = useRef<FlatList>(null);
   const cursorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionRef = useRef(new ConversationSession());
+  // Mirror of inputText used in voice callbacks to avoid stale closures
+  const inputTextRef = useRef('');
+
+  useEffect(() => {
+    VoiceInput.isAvailable().then(setVoiceAvailable);
+    return () => VoiceInput.destroy();
+  }, []);
 
   // Blink cursor while streaming
   useEffect(() => {
@@ -50,9 +61,7 @@ export default function HomeScreen() {
     listRef.current?.scrollToEnd({ animated: true });
   }, []);
 
-  const applyEvents = useCallback(async (
-    gen: AsyncGenerator<SessionEvent>
-  ) => {
+  const applyEvents = useCallback(async (gen: AsyncGenerator<SessionEvent>) => {
     setIsStreaming(true);
     try {
       for await (const event of gen) {
@@ -79,17 +88,49 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const handleSend = useCallback(async () => {
-    const text = inputText.trim();
-    if (!text || isStreaming) return;
+  const sendText = useCallback(async (text: string, currentMessages: ChatMessage[]) => {
+    if (!text.trim() || isStreaming) return;
     setInputText('');
-    await applyEvents(sessionRef.current.sendMessage(text, messages));
-  }, [inputText, isStreaming, messages, applyEvents]);
+    inputTextRef.current = '';
+    await applyEvents(sessionRef.current.sendMessage(text.trim(), currentMessages));
+  }, [isStreaming, applyEvents]);
+
+  const handleSend = useCallback(() => {
+    sendText(inputTextRef.current, messages);
+  }, [messages, sendText]);
+
+  const handleChangeText = useCallback((text: string) => {
+    setInputText(text);
+    inputTextRef.current = text;
+  }, []);
 
   const handleRetry = useCallback(async (failedMsgId: number) => {
     if (isStreaming) return;
     await applyEvents(sessionRef.current.retryMessage(failedMsgId));
   }, [isStreaming, applyEvents]);
+
+  const handleMicToggle = useCallback(async () => {
+    if (isRecording) {
+      await VoiceInput.stop();
+      setIsRecording(false);
+    } else {
+      setIsRecording(true);
+      const capturedMessages = messages;
+      await VoiceInput.start({
+        onPartial: (text) => {
+          setInputText(text);
+          inputTextRef.current = text;
+        },
+        onResult: (text) => {
+          setIsRecording(false);
+          sendText(text, capturedMessages);
+        },
+        onError: () => {
+          setIsRecording(false);
+        },
+      });
+    }
+  }, [isRecording, messages, sendText]);
 
   const openSidebar = useCallback(async () => {
     setSessions(await getSessions());
@@ -109,30 +150,13 @@ export default function HomeScreen() {
     setMessages([]);
   }, []);
 
-  const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
-    const isUser = item.role === 'user';
-    const displayText = item.streaming
-      ? item.content + (cursorVisible ? '|' : ' ')
-      : item.content;
-
-    return (
-      <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
-          {item.toolStatus ? (
-            <Text style={styles.toolStatusText}>{item.toolStatus}</Text>
-          ) : null}
-          <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextAI]}>
-            {displayText}
-          </Text>
-        </View>
-        {item.status === 'failed' && item.id !== undefined && (
-          <TouchableOpacity onPress={() => handleRetry(item.id!)} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }, [cursorVisible, handleRetry]);
+  const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
+    <MessageBubble
+      message={item}
+      cursorVisible={cursorVisible}
+      onRetry={handleRetry}
+    />
+  ), [cursorVisible, handleRetry]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -155,25 +179,15 @@ export default function HomeScreen() {
           onContentSizeChange={scrollToEnd}
           onLayout={scrollToEnd}
         />
-        <View style={styles.inputBar}>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Message..."
-            placeholderTextColor={colors.mutedForeground}
-            multiline
-            onSubmitEditing={handleSend}
-            submitBehavior="newline"
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!inputText.trim() || isStreaming) && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || isStreaming}
-          >
-            <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
-        </View>
+        <InputBar
+          inputText={inputText}
+          onChangeText={handleChangeText}
+          onSend={handleSend}
+          isStreaming={isStreaming}
+          isRecording={isRecording}
+          onMicToggle={handleMicToggle}
+          voiceAvailable={voiceAvailable}
+        />
       </KeyboardAvoidingView>
       <SessionSidebar
         visible={sidebarOpen}
@@ -188,6 +202,10 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: '#09090b',
+  },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -203,100 +221,11 @@ const styles = StyleSheet.create({
     color: '#fafafa',
     fontSize: 20,
   },
-  container: {
-    flex: 1,
-    backgroundColor: '#09090b',
-  },
   messageList: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     flexGrow: 1,
     justifyContent: 'flex-end',
-  },
-  bubbleRow: {
-    marginVertical: spacing.xs,
-    flexDirection: 'row',
-  },
-  bubbleRowUser: {
-    justifyContent: 'flex-end',
-  },
-  bubbleRowAI: {
-    justifyContent: 'flex-start',
-    flexDirection: 'column',
-  },
-  bubble: {
-    maxWidth: '75%',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
-  },
-  bubbleUser: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: radius.sm,
-  },
-  bubbleAI: {
-    backgroundColor: '#1c1c1e',
-    borderBottomLeftRadius: radius.sm,
-  },
-  bubbleText: {
-    ...typography.base,
-  },
-  bubbleTextUser: {
-    color: colors.primaryForeground,
-  },
-  bubbleTextAI: {
-    color: '#fafafa',
-  },
-  retryButton: {
-    marginTop: spacing.xs,
-    alignSelf: 'flex-start',
-  },
-  retryText: {
-    color: colors.primary,
-    ...typography.base,
-    fontWeight: '600',
-  },
-  toolStatusText: {
-    color: colors.mutedForeground,
-    ...typography.base,
-    fontStyle: 'italic',
-    marginBottom: spacing.xs,
-  },
-  inputBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
-    gap: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    backgroundColor: '#18181b',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: '#fafafa',
-    ...typography.base,
-  },
-  sendButton: {
-    height: 40,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: {
-    opacity: 0.4,
-  },
-  sendButtonText: {
-    color: colors.primaryForeground,
-    fontWeight: '600',
-    ...typography.base,
   },
 });
