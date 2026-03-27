@@ -9,7 +9,7 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: 'fetch_notes',
-    description: 'Returns all saved notes for a customer by name. Creates the customer record if not found.',
+    description: 'Returns all saved notes and orders for a customer by name.',
     parameters: {
       type: 'object',
       properties: {
@@ -20,7 +20,7 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: 'save_note',
-    description: 'Saves a note for a customer.',
+    description: 'Saves a note or order for a customer.',
     parameters: {
       type: 'object',
       properties: {
