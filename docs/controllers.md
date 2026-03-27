@@ -42,6 +42,29 @@ class ConversationSession {
 
 To start a new conversation, construct a new `ConversationSession()`. To resume, construct with the existing ID and call `loadMessages()`.
 
+### `src/VoiceInput.ts` — speech recognition
+
+Wraps `expo-speech-recognition`. UI never imports the library directly.
+
+```ts
+// True if the device supports speech recognition (synchronous)
+VoiceInput.isAvailable(): boolean
+
+// Requests mic permission, then starts recognition.
+// onPartial fires with interim transcripts; onResult fires with the final
+// transcript when recognition ends; onError fires on failure or denied permission.
+VoiceInput.start(callbacks: { onPartial, onResult, onError }): Promise<void>
+
+// Stops capturing — final result still fires via onResult callback
+VoiceInput.stop(): void
+
+// Cancels immediately without firing onResult
+VoiceInput.cancel(): void
+
+// Removes all event listeners (call in useEffect cleanup)
+VoiceInput.destroy(): void
+```
+
 ### `src/Sessions.ts` — session list
 
 Read-only helpers for listing past sessions. Used by the sidebar.
