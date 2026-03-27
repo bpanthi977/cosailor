@@ -11,32 +11,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { App } from '../../App';
-import type { Message } from '../ai/types';
-import {
-  createSession,
-  createMessage,
-  updateMessageStatus,
-  appendMessageContent,
-  getMessagesForSession,
-} from '../db';
+import { ConversationSession, type ChatMessage } from '../ConversationSession';
 import { colors, radius, spacing, typography } from '../theme';
-
-type ChatMessage = Message & {
-  id?: number;
-  streaming?: boolean;
-  status?: 'ok' | 'pending' | 'failed';
-};
 
 export default function HomeScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [cursorVisible, setCursorVisible] = useState(true);
-  const [sessionId, setSessionId] = useState<number | null>(null);
 
   const listRef = useRef<FlatList>(null);
   const cursorInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const session = useRef(new ConversationSession()).current;
 
   // Blink cursor while streaming
   useEffect(() => {
@@ -60,44 +46,26 @@ export default function HomeScreen() {
     listRef.current?.scrollToEnd({ animated: true });
   }, []);
 
-  const streamIntoMessage = useCallback(async (
-    aiMsgId: number,
-    history: Message[]
+  const applyEvents = useCallback(async (
+    gen: AsyncGenerator<import('../ConversationSession').SessionEvent>
   ) => {
-    let fullContent = '';
+    setIsStreaming(true);
     try {
-      const stream = App.getAI().streamMessage(history);
-      for await (const chunk of stream) {
-        fullContent += chunk;
-        setMessages(prev => {
-          const updated = [...prev];
-          const idx = updated.findIndex(m => m.id === aiMsgId);
-          if (idx !== -1) {
-            updated[idx] = { ...updated[idx], content: fullContent };
-          }
-          return updated;
-        });
+      for await (const event of gen) {
+        if (event.type === 'add_messages') {
+          setMessages(prev => [...prev, event.userMsg, event.aiMsg]);
+        } else if (event.type === 'chunk') {
+          setMessages(prev =>
+            prev.map(m => m.id === event.id ? { ...m, content: event.content } : m)
+          );
+        } else if (event.type === 'done') {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === event.id ? { ...m, streaming: false, status: event.status } : m
+            )
+          );
+        }
       }
-      await appendMessageContent(aiMsgId, fullContent);
-      await updateMessageStatus(aiMsgId, 'ok');
-      setMessages(prev => {
-        const updated = [...prev];
-        const idx = updated.findIndex(m => m.id === aiMsgId);
-        if (idx !== -1) {
-          updated[idx] = { ...updated[idx], streaming: false, status: 'ok' };
-        }
-        return updated;
-      });
-    } catch {
-      await updateMessageStatus(aiMsgId, 'failed');
-      setMessages(prev => {
-        const updated = [...prev];
-        const idx = updated.findIndex(m => m.id === aiMsgId);
-        if (idx !== -1) {
-          updated[idx] = { ...updated[idx], streaming: false, status: 'failed' };
-        }
-        return updated;
-      });
     } finally {
       setIsStreaming(false);
     }
@@ -106,53 +74,14 @@ export default function HomeScreen() {
   const handleSend = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isStreaming) return;
-
     setInputText('');
-    setIsStreaming(true);
-
-    let sid = sessionId;
-    if (sid === null) {
-      sid = await createSession();
-      setSessionId(sid);
-    }
-
-    const userMsgId = await createMessage(sid, 'user', text, 'ok');
-    const aiMsgId = await createMessage(sid, 'assistant', '', 'pending');
-
-    const history: Message[] = [...messages, { role: 'user', content: text }];
-
-    setMessages(prev => [
-      ...prev,
-      { role: 'user', content: text, id: userMsgId, status: 'ok' },
-      { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
-    ]);
-
-    await streamIntoMessage(aiMsgId, history);
-  }, [inputText, isStreaming, messages, sessionId, streamIntoMessage]);
+    await applyEvents(session.sendMessage(text, messages));
+  }, [inputText, isStreaming, messages, session, applyEvents]);
 
   const handleRetry = useCallback(async (failedMsgId: number) => {
-    if (isStreaming || sessionId === null) return;
-
-    setIsStreaming(true);
-    await updateMessageStatus(failedMsgId, 'pending');
-    setMessages(prev => {
-      const updated = [...prev];
-      const idx = updated.findIndex(m => m.id === failedMsgId);
-      if (idx !== -1) {
-        updated[idx] = { ...updated[idx], content: '', status: 'pending', streaming: true };
-      }
-      return updated;
-    });
-
-    const dbMsgs = await getMessagesForSession(sessionId);
-    // Use all messages before the failed one as context
-    const failedIdx = dbMsgs.findIndex(m => m.id === failedMsgId);
-    const history: Message[] = dbMsgs
-      .slice(0, failedIdx)
-      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-
-    await streamIntoMessage(failedMsgId, history);
-  }, [isStreaming, sessionId, streamIntoMessage]);
+    if (isStreaming) return;
+    await applyEvents(session.retryMessage(failedMsgId));
+  }, [isStreaming, session, applyEvents]);
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => {
     const isUser = item.role === 'user';
