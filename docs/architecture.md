@@ -26,12 +26,19 @@ Cosailor is a mobile-first, multimodal AI chat app for field sales reps. It acts
 - **Persistence:** SQLite (via `expo-sqlite`)
 - **Navigation:** @react-navigation/native
 
+## Session Layer
+
+More details in [sessions.md](sessions.md)
+
+- `ConversationSession` — manages one active session (send, retry, reset, resume)
+- `Sessions` — read-only helpers for listing and loading past sessions
+
 ## UI Structure
 
 More details in [ui.md](ui.md)
 
-- Home screen shows converstation view where user starts a new conversation. Text entry field at the bottom. 
-- Side bar shows a recent conversation and has buttons that lead to search customers, search conversations interface
+- Home screen shows conversation view where user starts a new conversation. Text entry field at the bottom. Hamburger icon opens the session sidebar.
+- Sidebar (slide-in drawer from left) lists past sessions with search; tap to resume or start a new conversation.
 - For search customers interface, user can select a customer and see all the conversations that refer to him
 - Live conversation UI: Full-screen modal. Continuous bidirectional audio — user speaks, agent responds via TTS. Waveform shown for both sides.
 - Inline voice input: Hold mic button → device speech recognition → transcript injected into chat input → sent as user message. No screen change.

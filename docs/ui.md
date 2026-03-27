@@ -14,7 +14,7 @@
 - Input bar with text + mic toggle
 - Feedback controls inline
 - Collapsible step timeline with status badges
-- Session history (title, date, resume button)
+- Session history sidebar (slide-in drawer, title + date list, search, resume or new conversation)
 - Live conversation view (voice playback, waveform, interrupt)
 - Export/share recap
 - Live conversational mode with agent speaking back
