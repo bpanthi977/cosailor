@@ -22,16 +22,11 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
   async function handleRating(value: 1 | -1) {
     if (rating === value) return;
     setRating(value);
-    if (value === 1) {
-      setShowComment(false);
-      await saveFeedback(message.id!, 1);
-    } else {
-      setShowComment(true);
-    }
+    setShowComment(true);
   }
 
   async function submitComment() {
-    await saveFeedback(message.id!, -1, comment.trim() || undefined);
+    await saveFeedback(message.id!, rating!, comment.trim() || undefined);
     setShowComment(false);
   }
   const displayText = message.streaming
