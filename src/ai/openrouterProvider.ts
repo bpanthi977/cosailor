@@ -9,6 +9,7 @@ import type {
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL = 'google/gemini-2.0-flash-lite-001';
+const SYSTEM_MESSAGE = 'You are a AI agent to help a salesman. Use provided tools to store important information about customer, fetch customer information to give factual answer. Answer the last question asked by user.'
 
 type Tools = {
   defs: ToolDef[];
@@ -153,6 +154,6 @@ async function* xhrStream(
       content: result,
       tool_call_id: tool.id,
     }));
-    yield* xhrStream(apiKey, [...messages, assistantMsg, ...toolResultMsgs], tools);
+    yield* xhrStream(apiKey, [{ role: 'system', content: SYSTEM_MESSAGE }, ...messages, assistantMsg, ...toolResultMsgs], tools);
   }
 }

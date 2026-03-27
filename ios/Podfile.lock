@@ -67,6 +67,8 @@ PODS:
     - React-Core
     - React-runtimescheduler
     - ReactCommon
+  - ExpoSpeechRecognition (3.1.2):
+    - ExpoModulesCore
   - ExpoSQLite (55.0.11):
     - ExpoModulesCore
   - FBLazyVector (0.83.4)
@@ -1979,6 +1981,7 @@ DEPENDENCIES:
   - "ExpoLogBox (from `../node_modules/expo/node_modules/@expo/log-box`)"
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-core`)
+  - ExpoSpeechRecognition (from `../node_modules/expo-speech-recognition/ios`)
   - ExpoSQLite (from `../node_modules/expo-sqlite/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
@@ -2078,6 +2081,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoModulesJSI:
     :path: "../node_modules/expo-modules-core"
+  ExpoSpeechRecognition:
+    :path: "../node_modules/expo-speech-recognition/ios"
   ExpoSQLite:
     :path: "../node_modules/expo-sqlite/ios"
   FBLazyVector:
@@ -2243,6 +2248,7 @@ SPEC CHECKSUMS:
   ExpoLogBox: 393a66b37ef3005c2890eb8b4468329db20bee51
   ExpoModulesCore: f950d653c14728227b232312ac2420f45930a959
   ExpoModulesJSI: 92db390c19eb21af69005d94f430793c7ca7aec7
+  ExpoSpeechRecognition: 3e416e568451e62678e8085469bcaff557b0b2b9
   ExpoSQLite: 6c9b9c2558a4194abe5cd1d236554ebbd59307cc
   FBLazyVector: 061f518bbd81677ed8a8317e2ae60b8779495808
   hermes-engine: e21fd5cbd89c8ac9993feb4c9718b205fddcab2c

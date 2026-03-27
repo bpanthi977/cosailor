@@ -1,4 +1,4 @@
-package com.cosailorinit
+package com.bpanthi977.cosailor
 
 import android.app.Application
 import android.content.res.Configuration

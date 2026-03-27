@@ -1,4 +1,4 @@
-import Voice, { SpeechResultsEvent, SpeechErrorEvent } from '@react-native-voice/voice';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 
 type VoiceCallbacks = {
   onPartial: (text: string) => void;
@@ -6,46 +6,61 @@ type VoiceCallbacks = {
   onError: () => void;
 };
 
-const noop = () => {};
+type Subscription = { remove: () => void };
+
+let resultSub: Subscription | null = null;
+let errorSub: Subscription | null = null;
+
+function clearAll() {
+  resultSub?.remove(); resultSub = null;
+  errorSub?.remove();  errorSub = null;
+}
 
 export const VoiceInput = {
-  async isAvailable(): Promise<boolean> {
-    try {
-      return (await Voice.isAvailable()) === 1;
-    } catch {
-      return false;
-    }
+  isAvailable(): boolean {
+    return ExpoSpeechRecognitionModule.isRecognitionAvailable();
   },
 
   async start(callbacks: VoiceCallbacks): Promise<void> {
-    Voice.onSpeechPartialResults = (e: SpeechResultsEvent) => {
-      callbacks.onPartial(e.value?.[0] ?? '');
-    };
-    Voice.onSpeechResults = (e: SpeechResultsEvent) => {
-      callbacks.onResult(e.value?.[0] ?? '');
-    };
-    Voice.onSpeechError = async (_e: SpeechErrorEvent) => {
-      await VoiceInput.cancel();
+    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!granted) {
       callbacks.onError();
-    };
-    await Voice.start('en-US');
+      return;
+    }
+
+    clearAll();
+
+    resultSub = ExpoSpeechRecognitionModule.addListener('result', (event) => {
+      const transcript = event.results[0]?.transcript ?? '';
+      if (event.isFinal) {
+        clearAll();
+        callbacks.onResult(transcript);
+      } else {
+        callbacks.onPartial(transcript);
+      }
+    });
+
+    errorSub = ExpoSpeechRecognitionModule.addListener('error', () => {
+      clearAll();
+      callbacks.onError();
+    });
+
+    ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true });
   },
 
-  async stop(): Promise<void> {
-    await Voice.stop();
+  stop(): void {
+    // Drop the error listener so an end-of-speech error on intentional stop
+    // doesn't fire onError. Keep resultSub alive to receive the final result.
+    errorSub?.remove(); errorSub = null;
+    ExpoSpeechRecognitionModule.stop();
   },
 
-  async cancel(): Promise<void> {
-    Voice.onSpeechResults = noop;
-    Voice.onSpeechPartialResults = noop;
-    Voice.onSpeechError = noop;
-    await Voice.cancel();
+  cancel(): void {
+    clearAll();
+    ExpoSpeechRecognitionModule.abort();
   },
 
   destroy(): void {
-    Voice.onSpeechResults = noop;
-    Voice.onSpeechPartialResults = noop;
-    Voice.onSpeechError = noop;
-    Voice.destroy();
+    clearAll();
   },
 };

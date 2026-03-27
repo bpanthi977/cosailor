@@ -35,7 +35,7 @@ export default function HomeScreen() {
   const inputTextRef = useRef('');
 
   useEffect(() => {
-    VoiceInput.isAvailable().then(setVoiceAvailable);
+    setVoiceAvailable(VoiceInput.isAvailable());
     return () => VoiceInput.destroy();
   }, []);
 
@@ -111,7 +111,7 @@ export default function HomeScreen() {
 
   const handleMicToggle = useCallback(async () => {
     if (isRecording) {
-      await VoiceInput.stop();
+      VoiceInput.stop();
       setIsRecording(false);
     } else {
       setIsRecording(true);
