@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "cosailor-init",
+    "slug": "cosailor-init",
+    "version": "1.0.0",
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}
