@@ -127,23 +127,32 @@ async function* xhrStream(
 
   if (xhrError) throw new Error(xhrError);
 
-  // Handle tool calls after XHR is done (each tool call triggers a new stream)
-  for (const { tool, args } of resolvedToolCalls) {
-    if (!tools) break;
-    yield { type: 'tool_start', name: tool.name, args };
-    const result = await tools.execute(tool.name, args);
-    yield { type: 'tool_done', name: tool.name, result };
+  // Execute all tool calls, then send one combined follow-up request.
+  // The OpenAI spec requires one assistant message listing all tool_calls,
+  // followed by one tool message per result — all in a single request.
+  if (resolvedToolCalls.length > 0 && tools) {
+    const toolResults: Array<{ tool: PendingToolCall; result: string }> = [];
+    for (const { tool, args } of resolvedToolCalls) {
+      yield { type: 'tool_start', name: tool.name, args };
+      const result = await tools.execute(tool.name, args);
+      yield { type: 'tool_done', name: tool.name, result };
+      toolResults.push({ tool, result });
+    }
 
-    const toolCallMsg: AssistantToolCallMessage = {
+    const assistantMsg: AssistantToolCallMessage = {
       role: 'assistant',
       content: null,
-      tool_calls: [{ id: tool.id, type: 'function', function: { name: tool.name, arguments: tool.argsJson } }],
+      tool_calls: toolResults.map(({ tool }) => ({
+        id: tool.id,
+        type: 'function',
+        function: { name: tool.name, arguments: tool.argsJson },
+      })),
     };
-    const toolResultMsg: ToolResultMessage = {
+    const toolResultMsgs: ToolResultMessage[] = toolResults.map(({ tool, result }) => ({
       role: 'tool',
       content: result,
       tool_call_id: tool.id,
-    };
-    yield* xhrStream(apiKey, [...messages, toolCallMsg, toolResultMsg], tools);
+    }));
+    yield* xhrStream(apiKey, [...messages, assistantMsg, ...toolResultMsgs], tools);
   }
 }
