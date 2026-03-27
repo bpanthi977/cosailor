@@ -4,9 +4,30 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 import { initDb } from './src/db/schema';
 import HomeScreen from './src/screens/HomeScreen';
+import { makeOpenrouterProvider } from './src/ai/openrouterProvider';
+import type { AIProvider } from './src/ai/types';
+
+class _App {
+  private static ai: AIProvider | null = null;
+
+  static init() {
+    const client = createOpenRouter({
+      apiKey: process.env.EXPO_PUBLIC_OPENROUTER_API_KEY,
+    });
+    _App.ai = makeOpenrouterProvider(client);
+  }
+
+  static getAI(): AIProvider {
+    if (!_App.ai) throw new Error('App.init() not called');
+    return _App.ai;
+  }
+}
+
+export { _App as App };
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +36,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    _App.init();
     initDb()
       .then(() => setDbReady(true))
       .catch((e) => setError(String(e)));
