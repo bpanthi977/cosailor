@@ -19,6 +19,7 @@ export async function initDb(): Promise<void> {
 
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS sessions (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
