@@ -10,14 +10,13 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import type { Session } from '../Sessions';
+import { getSessions, type Session } from '../Sessions';
 import { colors, radius, spacing, typography } from '../theme';
 
 const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.8;
 
 type Props = {
   visible: boolean;
-  sessions: Session[];
   onClose: () => void;
   onSelectSession: (session: Session) => void;
   onNewConversation: () => void;
@@ -25,7 +24,6 @@ type Props = {
 
 export default function SessionSidebar({
   visible,
-  sessions,
   onClose,
   onSelectSession,
   onNewConversation,
@@ -33,10 +31,12 @@ export default function SessionSidebar({
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const [mounted, setMounted] = useState(visible);
   const [search, setSearch] = useState('');
+  const [sessions, setSessions] = useState<Session[]>([]);
 
   useEffect(() => {
     if (visible) {
       setMounted(true);
+      getSessions().then(setSessions);
     }
     Animated.timing(slideAnim, {
       toValue: visible ? 0 : -SIDEBAR_WIDTH,

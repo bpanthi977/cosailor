@@ -29,7 +29,7 @@ export type ChatMessage = {
   toolSteps?: ToolStep[];
 };
 
-export type SessionEvent =
+type SessionEvent =
   | { type: 'add_messages'; userMsg: ChatMessage; aiMsg: ChatMessage }
   | { type: 'chunk'; id: number; content: string }
   | { type: 'tool_start'; msgId: number; step: ToolStep }
@@ -38,15 +38,34 @@ export type SessionEvent =
 
 export class ConversationSession {
   private sessionId: number | null;
+  private msgs: ChatMessage[] = [];
+  private streaming = false;
+  private readonly notify: (msgs: ChatMessage[]) => void;
+  private readonly onStreaming: (v: boolean) => void;
 
-  constructor(sessionId?: number) {
+  constructor(
+    notify: (msgs: ChatMessage[]) => void,
+    onStreaming: (v: boolean) => void,
+    sessionId?: number,
+  ) {
+    this.notify = notify;
+    this.onStreaming = onStreaming;
     this.sessionId = sessionId ?? null;
   }
 
-  async loadMessages(): Promise<ChatMessage[]> {
-    if (this.sessionId === null) return [];
+  private update(fn: (prev: ChatMessage[]) => ChatMessage[]) {
+    this.msgs = fn(this.msgs);
+    this.notify(this.msgs);
+  }
+
+  async loadMessages(): Promise<void> {
+    if (this.sessionId === null) {
+      this.msgs = [];
+      this.notify([]);
+      return;
+    }
     const dbMsgs = await getMessagesForSession(this.sessionId);
-    return Promise.all(
+    const msgs = await Promise.all(
       dbMsgs
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(async m => {
@@ -71,6 +90,8 @@ export class ConversationSession {
           return msg;
         })
     );
+    this.msgs = msgs;
+    this.notify(msgs);
   }
 
   private async ensureSession(): Promise<number> {
@@ -80,7 +101,60 @@ export class ConversationSession {
     return this.sessionId;
   }
 
-  async *sendMessage(text: string, history: ChatMessage[]): AsyncGenerator<SessionEvent> {
+  private applyEvent(event: SessionEvent) {
+    if (event.type === 'add_messages') {
+      this.update(prev => [...prev, event.userMsg, event.aiMsg]);
+    } else if (event.type === 'chunk') {
+      this.update(prev =>
+        prev.map(m => m.id === event.id ? { ...m, content: event.content } : m)
+      );
+    } else if (event.type === 'tool_start') {
+      this.update(prev =>
+        prev.map(m =>
+          m.id === event.msgId
+            ? { ...m, toolSteps: [...(m.toolSteps ?? []), event.step] }
+            : m
+        )
+      );
+    } else if (event.type === 'tool_done') {
+      this.update(prev =>
+        prev.map(m =>
+          m.id === event.msgId
+            ? {
+                ...m,
+                toolSteps: m.toolSteps?.map(s =>
+                  s.id === event.stepId
+                    ? { ...s, status: event.status, result: event.result }
+                    : s
+                ),
+              }
+            : m
+        )
+      );
+    } else if (event.type === 'done') {
+      this.update(prev =>
+        prev.map(m =>
+          m.id === event.id ? { ...m, streaming: false, status: event.status } : m
+        )
+      );
+    }
+  }
+
+  private async runStream(gen: AsyncGenerator<SessionEvent>) {
+    this.streaming = true;
+    this.onStreaming(true);
+    try {
+      for await (const event of gen) {
+        this.applyEvent(event);
+      }
+    } finally {
+      this.streaming = false;
+      this.onStreaming(false);
+    }
+  }
+
+  async sendMessage(text: string): Promise<void> {
+    if (!text.trim() || this.streaming) return;
     const isNew = this.sessionId === null;
     const sid = await this.ensureSession();
     if (isNew) {
@@ -89,24 +163,25 @@ export class ConversationSession {
     const userMsgId = await createMessage(sid, 'user', text, 'ok');
     const aiMsgId = await createMessage(sid, 'assistant', '', 'pending');
 
-    yield {
+    this.applyEvent({
       type: 'add_messages',
       userMsg: { role: 'user', content: text, id: userMsgId, status: 'ok' },
       aiMsg: { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
-    };
+    });
 
     const aiHistory: Message[] = [
-      ...history.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: text },
+      ...this.msgs
+        .filter(m => m.id !== aiMsgId)
+        .map(m => ({ role: m.role, content: m.content })),
     ];
-    yield* this.streamResponse(aiMsgId, aiHistory);
+    await this.runStream(this.streamResponse(aiMsgId, aiHistory));
   }
 
-  async *retryMessage(failedMsgId: number): AsyncGenerator<SessionEvent> {
-    if (this.sessionId === null) return;
+  async retryMessage(failedMsgId: number): Promise<void> {
+    if (this.sessionId === null || this.streaming) return;
 
     await updateMessageStatus(failedMsgId, 'pending');
-    yield { type: 'chunk', id: failedMsgId, content: '' };
+    this.applyEvent({ type: 'chunk', id: failedMsgId, content: '' });
 
     const dbMsgs = await getMessagesForSession(this.sessionId);
     const failedIdx = dbMsgs.findIndex(m => m.id === failedMsgId);
@@ -114,7 +189,7 @@ export class ConversationSession {
       .slice(0, failedIdx)
       .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-    yield* this.streamResponse(failedMsgId, history);
+    await this.runStream(this.streamResponse(failedMsgId, history));
   }
 
   private async *streamResponse(

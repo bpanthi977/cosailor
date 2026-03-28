@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -8,29 +8,27 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { VoiceInput } from '../VoiceInput';
 import { colors, radius, spacing, typography } from '../theme';
 
 type Props = {
-  inputText: string;
-  onChangeText: (text: string) => void;
-  onSend: () => void;
+  onSend: (text: string) => void;
   isStreaming: boolean;
-  isRecording: boolean;
-  onMicToggle: () => void;
-  voiceAvailable: boolean;
 };
 
-export default function InputBar({
-  inputText,
-  onChangeText,
-  onSend,
-  isStreaming,
-  isRecording,
-  onMicToggle,
-  voiceAvailable,
-}: Props) {
+export default function InputBar({ onSend, isStreaming }: Props) {
+  const [inputText, setInputText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceAvailable, setVoiceAvailable] = useState(false);
+  const inputTextRef = useRef('');
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    Promise.resolve(VoiceInput.isAvailable()).then(setVoiceAvailable);
+    return () => VoiceInput.destroy();
+  }, []);
 
   useEffect(() => {
     if (isRecording) {
@@ -50,6 +48,43 @@ export default function InputBar({
     };
   }, [isRecording, pulseAnim]);
 
+  const handleChangeText = (text: string) => {
+    setInputText(text);
+    inputTextRef.current = text;
+  };
+
+  const handleSend = () => {
+    const text = inputTextRef.current.trim();
+    if (!text || isStreaming) return;
+    setInputText('');
+    inputTextRef.current = '';
+    onSend(text);
+  };
+
+  const handleMicToggle = async () => {
+    if (isRecording) {
+      VoiceInput.stop();
+      setIsRecording(false);
+    } else {
+      setIsRecording(true);
+      await VoiceInput.start({
+        onPartial: (text) => {
+          setInputText(text);
+          inputTextRef.current = text;
+        },
+        onResult: (text) => {
+          setIsRecording(false);
+          setInputText('');
+          inputTextRef.current = '';
+          onSend(text);
+        },
+        onError: () => {
+          setIsRecording(false);
+        },
+      });
+    }
+  };
+
   const sendDisabled = !inputText.trim() || isStreaming;
 
   return (
@@ -57,18 +92,18 @@ export default function InputBar({
       <TextInput
         style={styles.input}
         value={inputText}
-        onChangeText={onChangeText}
+        onChangeText={handleChangeText}
         placeholder="Message..."
         placeholderTextColor={colors.mutedForeground}
         multiline
-        onSubmitEditing={onSend}
+        onSubmitEditing={handleSend}
         submitBehavior="newline"
       />
       {voiceAvailable && (
         <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
           <TouchableOpacity
             style={[styles.micButton, isRecording && styles.micButtonActive]}
-            onPress={onMicToggle}
+            onPress={handleMicToggle}
             disabled={isStreaming}
           >
             <Text style={styles.micIcon}>{isRecording ? '⏹' : '🎤'}</Text>
@@ -77,7 +112,7 @@ export default function InputBar({
       )}
       <TouchableOpacity
         style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
-        onPress={onSend}
+        onPress={handleSend}
         disabled={sendDisabled}
       >
         <Text style={styles.sendButtonText}>Send</Text>
