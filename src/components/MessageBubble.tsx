@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 import type { ChatMessage, ToolStep } from '../ConversationSession';
 import { saveFeedback } from '../db';
 import { colors, radius, spacing, typography } from '../theme';
@@ -8,6 +9,47 @@ type Props = {
   message: ChatMessage;
   cursorVisible: boolean;
   onRetry: (id: number) => void;
+};
+
+const markdownStyles = {
+  body: {
+    color: '#fafafa',
+    fontSize: typography.base.fontSize,
+    lineHeight: typography.base.lineHeight,
+  },
+  strong: { fontWeight: '700' as const },
+  em: { fontStyle: 'italic' as const },
+  heading1: { fontSize: 20, lineHeight: 28, fontWeight: '700' as const, color: '#fafafa', marginBottom: 4 },
+  heading2: { fontSize: 17, lineHeight: 24, fontWeight: '700' as const, color: '#fafafa', marginBottom: 4 },
+  heading3: { fontSize: 15, lineHeight: 22, fontWeight: '600' as const, color: '#fafafa', marginBottom: 2 },
+  bullet_list: { marginVertical: 2 },
+  ordered_list: { marginVertical: 2 },
+  list_item: { color: '#fafafa' },
+  code_inline: {
+    backgroundColor: '#27272a',
+    color: '#a78bfa',
+    fontFamily: 'Courier',
+    fontSize: 13,
+    borderRadius: 3,
+    paddingHorizontal: 4,
+  },
+  fence: {
+    backgroundColor: '#27272a',
+    color: '#a78bfa',
+    fontFamily: 'Courier',
+    fontSize: 13,
+    borderRadius: 6,
+    padding: 8,
+    marginVertical: 4,
+  },
+  blockquote: {
+    borderLeftWidth: 3,
+    borderLeftColor: colors.mutedForeground,
+    paddingLeft: 8,
+    marginVertical: 4,
+  },
+  link: { color: '#818cf8' },
+  paragraph: { marginVertical: 2 },
 };
 
 export default function MessageBubble({ message, cursorVisible, onRetry }: Props) {
@@ -38,9 +80,11 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
   return (
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
-        <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextAI]}>
-          {displayText}
-        </Text>
+        {isUser ? (
+          <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{displayText}</Text>
+        ) : (
+          <Markdown style={markdownStyles}>{displayText}</Markdown>
+        )}
       </View>
       {steps && steps.length > 0 && (
         <View style={styles.stepsContainer}>
