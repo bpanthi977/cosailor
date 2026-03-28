@@ -76,6 +76,7 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
     : message.content;
 
   const steps = message.toolSteps;
+  const savedNote = steps?.some(s => s.name === 'save_note' && s.status === 'ok') ?? false;
 
   return (
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
@@ -86,6 +87,11 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
           <Markdown style={markdownStyles}>{displayText}</Markdown>
         )}
       </View>
+      {savedNote && (
+        <View style={styles.noteIndicator}>
+          <Text style={styles.noteIndicatorText}>📝 Note saved</Text>
+        </View>
+      )}
       {steps && steps.length > 0 && (
         <View style={styles.stepsContainer}>
           <TouchableOpacity onPress={() => setExpanded(e => !e)} style={styles.stepsToggle}>
@@ -260,6 +266,14 @@ const styles = StyleSheet.create({
     color: '#a1a1aa',
     ...typography.sm,
     marginTop: 2,
+  },
+  noteIndicator: {
+    marginTop: spacing.xs,
+    paddingLeft: spacing.xs,
+  },
+  noteIndicatorText: {
+    color: colors.mutedForeground,
+    ...typography.sm,
   },
   retryButton: {
     marginTop: spacing.xs,
