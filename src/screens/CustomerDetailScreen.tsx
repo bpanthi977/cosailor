@@ -53,6 +53,7 @@ export default function CustomerDetailScreen() {
   const handleDeleteSession = useCallback(async (sessionId: number) => {
     await deleteSession(sessionId);
     setSessions(prev => prev.filter(s => s.id !== sessionId));
+    setNotes(prev => prev.filter(n => n.session_id !== sessionId));
   }, []);
 
   const handleSelectNote = useCallback((note: Note) => {
