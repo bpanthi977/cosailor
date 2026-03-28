@@ -35,8 +35,8 @@ export class ConversationSession {
   private sessionId: number | null;
   private msgs: ChatMessage[] = [];
   private streaming = false;
-  private readonly notify: (msgs: ChatMessage[]) => void;
-  private readonly onStreaming: (v: boolean) => void;
+  private notify: (msgs: ChatMessage[]) => void;
+  private onStreaming: (v: boolean) => void;
 
   constructor(
     notify: (msgs: ChatMessage[]) => void,
@@ -51,6 +51,18 @@ export class ConversationSession {
   private update(fn: (prev: ChatMessage[]) => ChatMessage[]) {
     this.msgs = fn(this.msgs);
     this.notify(this.msgs);
+  }
+
+  getMessages(): ChatMessage[] {
+    return this.msgs;
+  }
+
+  setCallbacks(
+    notify: (msgs: ChatMessage[]) => void,
+    onStreaming: (v: boolean) => void,
+  ): void {
+    this.notify = notify;
+    this.onStreaming = onStreaming;
   }
 
   async loadMessages(): Promise<void> {

@@ -5,10 +5,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { App } from './src/app';
+import type { RootStackParamList } from './src/navigation/types';
 
 import HomeScreen from './src/screens/HomeScreen';
+import LiveConversationScreen from './src/screens/LiveConversationScreen';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppView() {
   const [appReady, setAppReady] = useState(false);
@@ -38,6 +40,11 @@ export default function AppView() {
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen
+            name="LiveConversation"
+            component={LiveConversationScreen}
+            options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

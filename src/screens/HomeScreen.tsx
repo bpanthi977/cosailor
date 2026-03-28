@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ConversationSession, type ChatMessage } from '../ConversationSession';
 import type { Session } from '../Sessions';
@@ -17,6 +19,7 @@ import MessageBubble from '../components/MessageBubble';
 import SessionSidebar from '../components/SessionSidebar';
 import useCursorBlink from '../hooks/useCursorBlink';
 import { spacing } from '../theme';
+import type { RootStackParamList } from '../navigation/types';
 
 function useChatController() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,14 +37,24 @@ function useChatController() {
     setMessages([]);
   }, []);
 
-  return { messages, isStreaming, session: sessionRef.current, loadSession, newConversation };
+  // Re-register callbacks when screen regains focus (after LiveConversation modal)
+  useFocusEffect(
+    useCallback(() => {
+      const session = sessionRef.current;
+      session.setCallbacks(setMessages, setIsStreaming);
+      setMessages(session.getMessages());
+    }, []),
+  );
+
+  return { messages, isStreaming, sessionRef, session: sessionRef.current, loadSession, newConversation };
 }
 
 export default function HomeScreen() {
-  const { messages, isStreaming, session, loadSession, newConversation } = useChatController();
+  const { messages, isStreaming, sessionRef, session, loadSession, newConversation } = useChatController();
   const cursorVisible = useCursorBlink(isStreaming);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const scrollToEnd = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
@@ -65,6 +78,12 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => setSidebarOpen(true)} style={styles.menuButton}>
             <Text style={styles.menuIcon}>☰</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('LiveConversation', { session: sessionRef.current })}
+            style={styles.menuButton}
+          >
+            <Text style={styles.menuIcon}>◉</Text>
           </TouchableOpacity>
         </View>
         <FlatList
@@ -97,6 +116,7 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,

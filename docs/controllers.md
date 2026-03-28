@@ -72,6 +72,10 @@ VoiceInput.cancel(): void
 VoiceInput.destroy(): void
 ```
 
+### Live conversation controllers
+
+See [live_conversation.md](live_conversation.md) for `TtsOutput` and `LiveConversationController`.
+
 ### `src/Sessions.ts` — session list
 
 Read-only helpers for listing past sessions. Used by the sidebar.
