@@ -71,7 +71,7 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
     await saveFeedback(message.id!, rating!, comment.trim() || undefined);
     setShowComment(false);
   }
-  const displayText = message.streaming
+  const displayText = isUser && message.streaming
     ? message.content + (cursorVisible ? '|' : ' ')
     : message.content;
 
@@ -84,7 +84,12 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
         {isUser ? (
           <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{displayText}</Text>
         ) : (
-          <Markdown style={markdownStyles}>{displayText}</Markdown>
+          <>
+            <Markdown style={markdownStyles}>{displayText}</Markdown>
+            {message.streaming && (
+              <Text style={styles.streamingCursor}>{cursorVisible ? '|' : ' '}</Text>
+            )}
+          </>
         )}
       </View>
       {savedNote && (
@@ -266,6 +271,10 @@ const styles = StyleSheet.create({
     color: '#a1a1aa',
     ...typography.sm,
     marginTop: 2,
+  },
+  streamingCursor: {
+    color: '#fafafa',
+    ...typography.base,
   },
   noteIndicator: {
     marginTop: spacing.xs,
