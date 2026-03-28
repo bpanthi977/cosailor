@@ -93,6 +93,15 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
   const steps = message.toolSteps;
   const savedNote = steps?.some(s => s.name === 'save_note' && s.status === 'ok') ?? false;
 
+  const lastStep = steps && steps.length > 0 ? steps[steps.length - 1]: undefined;
+  let thinkingSteps = '';
+  if (!isUser && lastStep) {
+    if (message.content == '')
+      thinkingSteps = '*' + stepLabel(lastStep) + '*';
+    else if (lastStep.status == 'running')
+      thinkingSteps = '\n*' + stepLabel(lastStep) + '*';
+  }
+  
   return (
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
@@ -100,7 +109,7 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
           <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{message.content}</Text>
         ) : (
           <>
-            <Markdown style={markdownStyles}>{message.content}</Markdown>
+            <Markdown style={markdownStyles}>{message.content + thinkingSteps}</Markdown>
             {message.streaming && (
               <Text style={styles.streamingCursor}>{cursorVisible ? '|' : ' '}</Text>
             )}
