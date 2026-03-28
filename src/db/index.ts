@@ -1,6 +1,6 @@
 export { initDb, getDb } from './schema';
 export type { Session, DbMessage, ToolCall, Customer, Note, Feedback } from './types';
-export { createSession, updateSessionTitle, touchSession, getSession, listSessions } from './sessions';
+export { createSession, updateSessionTitle, touchSession, getSession, listSessions, deleteSession } from './sessions';
 export {
   createMessage,
   updateMessageStatus,
@@ -15,8 +15,10 @@ export {
 export {
   upsertCustomer,
   listCustomers,
+  listCustomersByRecency,
   saveNote,
   fetchNotes,
+  deleteNote,
   linkSessionToCustomer,
   getSessionsForCustomer,
   getCustomerForSession,

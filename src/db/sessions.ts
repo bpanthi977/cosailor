@@ -31,6 +31,11 @@ export async function getSession(id: number): Promise<Session | null> {
   return db.getFirstAsync<Session>('SELECT * FROM sessions WHERE id = ?', id);
 }
 
+export async function deleteSession(sessionId: number): Promise<void> {
+  const db = getDb();
+  await db.runAsync('DELETE FROM sessions WHERE id = ?', sessionId);
+}
+
 export async function listSessions(): Promise<SessionListItem[]> {
   const db = getDb();
   const rows = await db.getAllAsync<Session & { has_notes: number }>(

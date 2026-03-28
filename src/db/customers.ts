@@ -79,3 +79,20 @@ export async function linkSessionToCustomer(
     customerId
   );
 }
+
+export async function deleteNote(noteId: number): Promise<void> {
+  const db = getDb();
+  await db.runAsync('DELETE FROM notes WHERE id = ?', noteId);
+}
+
+export async function listCustomersByRecency(): Promise<Customer[]> {
+  const db = getDb();
+  return db.getAllAsync<Customer>(
+    `SELECT c.*
+     FROM customers c
+     LEFT JOIN session_customers sc ON sc.customer_id = c.id
+     LEFT JOIN sessions s ON s.id = sc.session_id
+     GROUP BY c.id
+     ORDER BY MAX(s.updated_at) DESC`
+  );
+}

@@ -11,6 +11,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import LiveConversationScreen from './src/screens/LiveConversationScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
 import SkillsScreen from './src/screens/SkillsScreen';
+import CustomerDetailScreen from './src/screens/CustomerDetailScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -47,6 +48,7 @@ export default function AppView() {
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Customers" component={CustomersScreen} />
           <Stack.Screen name="Skills" component={SkillsScreen} />
+          <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
           <Stack.Screen
             name="LiveConversation"
             component={LiveConversationScreen}

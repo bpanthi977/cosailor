@@ -5,4 +5,5 @@ export type RootStackParamList = {
   LiveConversation: { session: ConversationSession };
   Customers: undefined;
   Skills: undefined;
+  CustomerDetail: { customerId: number; customerName: string };
 };
