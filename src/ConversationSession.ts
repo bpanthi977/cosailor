@@ -129,7 +129,7 @@ export class ConversationSession {
     return this.sessionId;
   }
 
-  async sendMessage(text: string): Promise<void> {
+  async sendMessage(text: string, options?: { onTextChunk?: (chunk: string) => void }): Promise<void> {
     if (!text.trim() || this.streaming) return;
     const isNew = this.sessionId === null;
     const sid = await this.ensureSession();
@@ -154,7 +154,7 @@ export class ConversationSession {
         .map(m => ({ role: m.role, content: m.content }))
     );
 
-    await this.streamResponse(aiMsgId, history);
+    await this.streamResponse(aiMsgId, history, options?.onTextChunk);
   }
 
   async retryMessage(failedMsgId: number): Promise<void> {
@@ -176,7 +176,7 @@ export class ConversationSession {
     await this.streamResponse(failedMsgId, history);
   }
 
-  private async streamResponse(aiMsgId: number, conversation: Message[]): Promise<void> {
+  private async streamResponse(aiMsgId: number, conversation: Message[], onTextChunk?: (chunk: string) => void): Promise<void> {
     this.streaming = true;
     this.onStreaming(true);
     let fullContent = '';
@@ -189,6 +189,7 @@ export class ConversationSession {
       for await (const event of stream) {
         if (event.type === 'text') {
           fullContent += event.content;
+          onTextChunk?.(event.content);
           this.update(prev =>
             prev.map(m => m.id === aiMsgId ? { ...m, content: fullContent } : m)
           );

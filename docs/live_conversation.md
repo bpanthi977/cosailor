@@ -56,15 +56,17 @@ LISTENING:
   user taps End → IDLE
 
 PROCESSING_AI:
-  session.sendMessage() called, awaits stream completion
-  success → SPEAKING_AI
-  failure or empty → LISTENING (retry)
+  session.sendMessage() called with onTextChunk callback
+  first complete sentence arrives → SPEAKING_AI (TTS starts immediately)
+  failure or empty stream → LISTENING (retry)
 
 SPEAKING_AI:
   background VoiceInput interrupt listener active
-  onBoundary → update spokenCharIndex in state
-  interrupt (partial > 3 chars) → stop TTS → LISTENING with partial text
-  TTS onDone → LISTENING (loop continues)
+  responseText grows in real time as more AI text streams in
+  sentences queued and spoken back-to-back as they arrive
+  onBoundary → update spokenCharIndex (sentenceOffset + charIndex)
+  interrupt (partial > 3 chars) → stop TTS, clear queue → LISTENING with partial text
+  TTS queue drains and stream done → LISTENING (loop continues)
   user taps End → IDLE
 ```
 
