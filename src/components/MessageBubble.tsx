@@ -89,9 +89,6 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
     await saveFeedback(message.id!, rating!, comment.trim() || undefined);
     setShowComment(false);
   }
-  const displayText = message.streaming
-    ? message.content + (cursorVisible ? '|' : ' ')
-    : message.content;
 
   const steps = message.toolSteps;
   const savedNote = steps?.some(s => s.name === 'save_note' && s.status === 'ok') ?? false;
@@ -100,9 +97,14 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
       <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
         {isUser ? (
-          <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{displayText}</Text>
+          <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{message.content}</Text>
         ) : (
-          <Markdown style={markdownStyles}>{displayText}</Markdown>
+          <>
+            <Markdown style={markdownStyles}>{message.content}</Markdown>
+            {message.streaming && (
+              <Text style={styles.streamingCursor}>{cursorVisible ? '|' : ' '}</Text>
+            )}
+          </>
         )}
       </View>
       {savedNote && (
@@ -392,6 +394,14 @@ const styles = StyleSheet.create({
   stringList: {
     marginTop: 4,
     gap: 2,
+  },
+  streamingCursor: {
+    color: '#fafafa',
+    ...typography.base,
+  },
+  noteIndicator: {
+    marginTop: spacing.xs,
+    paddingLeft: spacing.xs,
   },
   stringListItem: {
     color: '#d4d4d8',
