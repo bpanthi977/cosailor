@@ -16,6 +16,32 @@ function clearAll() {
   errorSub?.remove();  errorSub = null;
 }
 
+function doStart(callbacks: VoiceCallbacks): void {
+  clearAll();
+
+  resultSub = ExpoSpeechRecognitionModule.addListener('result', (event) => {
+    const transcript = event.results[0]?.transcript ?? '';
+    if (event.isFinal) {
+      clearAll();
+      callbacks.onResult(transcript);
+    } else {
+      callbacks.onPartial(transcript);
+    }
+  });
+
+  errorSub = ExpoSpeechRecognitionModule.addListener('error', (event) => {
+    clearAll();
+    if (event.error === 'no-speech' || event.error === 'speech-timeout') {
+      // Auto-stop due to silence (platforms where continuous is unsupported) — restart silently
+      doStart(callbacks);
+    } else {
+      callbacks.onError();
+    }
+  });
+
+  ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true, continuous: true });
+}
+
 export const VoiceInput = {
   isAvailable(): boolean {
     return ExpoSpeechRecognitionModule.isRecognitionAvailable();
@@ -27,25 +53,7 @@ export const VoiceInput = {
       callbacks.onError();
       return;
     }
-
-    clearAll();
-
-    resultSub = ExpoSpeechRecognitionModule.addListener('result', (event) => {
-      const transcript = event.results[0]?.transcript ?? '';
-      if (event.isFinal) {
-        clearAll();
-        callbacks.onResult(transcript);
-      } else {
-        callbacks.onPartial(transcript);
-      }
-    });
-
-    errorSub = ExpoSpeechRecognitionModule.addListener('error', () => {
-      clearAll();
-      callbacks.onError();
-    });
-
-    ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true });
+    doStart(callbacks);
   },
 
   stop(): void {
