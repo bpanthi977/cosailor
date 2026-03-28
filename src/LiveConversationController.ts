@@ -1,6 +1,7 @@
 import { VoiceInput } from './VoiceInput';
 import { TtsOutput } from './TtsOutput';
 import { ConversationSession } from './ConversationSession';
+import { onNetworkRestore } from './hooks/useNetwork';
 
 const SILENCE_TIMEOUT_MS = 1500;
 
@@ -21,7 +22,22 @@ export class LiveConversationController {
   private stopped = false;
   private _hadPartialSpeech = false;
 
-  constructor(private readonly session: ConversationSession) {}
+  // Streaming TTS state
+  private _generation = 0;
+  private _streamBuffer = '';
+  private _accumulatedText = '';
+  private _ttsQueue: Array<{ text: string; offset: number }> = [];
+  private _ttsSpeaking = false;
+  private _streamDone = false;
+  private _unsubNetworkRestore: (() => void) | null = null;
+
+  constructor(private readonly session: ConversationSession) {
+    this._unsubNetworkRestore = onNetworkRestore(() => {
+      if (!this.stopped && this.state.phase === 'error') {
+        this._startListening('');
+      }
+    });
+  }
 
   getState(): LiveState {
     return this.state;
@@ -39,6 +55,9 @@ export class LiveConversationController {
 
   stop(): void {
     this.stopped = true;
+    this._generation++;
+    this._ttsQueue = [];
+    this._ttsSpeaking = false;
     this._clearSilenceTimer();
     TtsOutput.stop();
     VoiceInput.cancel();
@@ -48,6 +67,8 @@ export class LiveConversationController {
 
   destroy(): void {
     this.stop();
+    this._unsubNetworkRestore?.();
+    this._unsubNetworkRestore = null;
     this.listeners.clear();
   }
 
@@ -120,45 +141,112 @@ export class LiveConversationController {
       return;
     }
     this._setState({ phase: 'processing_ai' });
+
+    const generation = ++this._generation;
+    this._streamBuffer = '';
+    this._accumulatedText = '';
+    this._ttsQueue = [];
+    this._ttsSpeaking = false;
+    this._streamDone = false;
+
     try {
-      await this.session.sendMessage(text);
-      if (this.stopped) return;
-      const msgs = this.session.getMessages();
-      const last = msgs[msgs.length - 1];
-      if (last && last.role === 'assistant' && last.status === 'ok' && last.content) {
-        this._startSpeaking(last.content);
-      } else {
-        // AI returned empty or failed — loop back
-        if (!this.stopped) this._startListening('');
+      await this.session.sendMessage(text, {
+        onTextChunk: (chunk) => {
+          if (this._generation !== generation || this.stopped) return;
+          this._onStreamChunk(chunk);
+        },
+      });
+      if (this._generation !== generation || this.stopped) return;
+      // Speak any remaining partial sentence that didn't end with punctuation
+      if (this._streamBuffer.trim()) {
+        const offset = this._accumulatedText.length - this._streamBuffer.length;
+        this._enqueueForTts(this._streamBuffer.trim(), offset);
+        this._streamBuffer = '';
       }
+      this._streamDone = true;
+      this._tryDequeue();
     } catch {
-      if (!this.stopped) this._startListening('');
+      if (this._generation !== generation || this.stopped) return;
+      this._setState({ phase: 'error', message: 'Connection lost' });
+      TtsOutput.speak("Sorry, I lost the connection. I'll retry when you're back online.", {
+        onStart: () => {},
+        onDone: () => {},
+        onError: () => {},
+        onBoundary: () => {},
+      });
     }
   }
 
-  private _startSpeaking(text: string): void {
-    if (this.stopped) return;
-    this._setState({ phase: 'speaking_ai', responseText: text, spokenCharIndex: 0 });
-    this._startInterruptListener();
+  private _onStreamChunk(chunk: string): void {
+    this._streamBuffer += chunk;
+    this._accumulatedText += chunk;
 
-    TtsOutput.speak(text, {
+    // Live-update responseText while already speaking
+    if (this.state.phase === 'speaking_ai') {
+      this._setState({ ...this.state, responseText: this._accumulatedText });
+    }
+
+    this._extractSentences();
+  }
+
+  private _extractSentences(): void {
+    // Match text ending with sentence-boundary punctuation followed by optional whitespace
+    const regex = /[^.!?\n]*[.!?\n]+\s*/g;
+    let match: RegExpExecArray | null;
+    let lastIndex = 0;
+    const bufferStart = this._accumulatedText.length - this._streamBuffer.length;
+    while ((match = regex.exec(this._streamBuffer)) !== null) {
+      const sentence = match[0].trim();
+      if (sentence) this._enqueueForTts(sentence, bufferStart + match.index);
+      lastIndex = regex.lastIndex;
+    }
+    this._streamBuffer = this._streamBuffer.slice(lastIndex);
+  }
+
+  private _enqueueForTts(text: string, offset: number): void {
+    this._ttsQueue.push({ text, offset });
+    this._tryDequeue();
+  }
+
+  private _tryDequeue(): void {
+    if (this._ttsSpeaking || this.stopped) return;
+
+    if (this._ttsQueue.length === 0) {
+      if (this._streamDone) {
+        // Nothing left to say — return to listening
+        this._stopInterruptListener();
+        if (!this.stopped) this._startListening('');
+      }
+      return;
+    }
+
+    const { text: sentence, offset: sentenceOffset } = this._ttsQueue.shift()!;
+    this._ttsSpeaking = true;
+
+    // Transition to speaking_ai on first sentence
+    if (this.state.phase === 'processing_ai') {
+      this._setState({ phase: 'speaking_ai', responseText: this._accumulatedText, spokenCharIndex: sentenceOffset });
+      this._startInterruptListener();
+    }
+
+    TtsOutput.speak(sentence, {
       onStart: () => {},
       onDone: () => {
         if (this.stopped) return;
-        this._stopInterruptListener();
-        if (!this.stopped) this._startListening('');
+        this._ttsSpeaking = false;
+        this._tryDequeue();
       },
       onError: () => {
         if (this.stopped) return;
-        this._stopInterruptListener();
-        if (!this.stopped) this._startListening('');
+        this._ttsSpeaking = false;
+        this._tryDequeue();
       },
       onBoundary: (charIndex) => {
         if (!this.stopped && this.state.phase === 'speaking_ai') {
           this._setState({
             phase: 'speaking_ai',
-            responseText: text,
-            spokenCharIndex: charIndex,
+            responseText: this._accumulatedText,
+            spokenCharIndex: sentenceOffset + charIndex,
           });
         }
       },
@@ -194,6 +282,10 @@ export class LiveConversationController {
 
   private _onInterrupt(partialText: string): void {
     if (this.stopped || this.state.phase !== 'speaking_ai') return;
+    this._generation++;
+    this._ttsQueue = [];
+    this._ttsSpeaking = false;
+    this._streamDone = false;
     this.interruptActive = false;
     TtsOutput.stop();
     this._startListening(partialText);

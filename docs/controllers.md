@@ -44,6 +44,13 @@ class ConversationSession {
 
   // Retry a previously failed AI message
   retryMessage(failedMsgId: number): Promise<void>
+
+  // Retries the first failed/pending assistant message in the session.
+  // Called automatically when network connectivity is restored.
+  retryPendingMessages(): Promise<void>
+
+  // Unsubscribes the network restore listener — call when discarding the session.
+  destroy(): void
 }
 ```
 
@@ -75,6 +82,21 @@ VoiceInput.destroy(): void
 ### Live conversation controllers
 
 See [live_conversation.md](live_conversation.md) for `TtsOutput` and `LiveConversationController`.
+
+### `src/hooks/useNetwork.ts` — network state
+
+Wraps `@react-native-community/netinfo`. Used by HomeScreen and LiveConversationController.
+
+```ts
+// React hook — returns current connectivity (true = online)
+useNetworkState(): boolean
+
+// React hook — fires cb once each time the device transitions from offline to online
+useNetworkRestore(cb: () => void): void
+
+// Imperative version — returns unsubscribe fn. Used by non-hook controllers.
+onNetworkRestore(cb: () => void): () => void
+```
 
 ### `src/Sessions.ts` — session list
 

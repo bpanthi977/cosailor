@@ -19,6 +19,7 @@ import InputBar from '../components/InputBar';
 import MessageBubble from '../components/MessageBubble';
 import SessionSidebar from '../components/SessionSidebar';
 import useCursorBlink from '../hooks/useCursorBlink';
+import { useNetworkState, useNetworkRestore } from '../hooks/useNetwork';
 import { spacing } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -59,6 +60,8 @@ function useChatController() {
 export default function HomeScreen() {
   const { messages, isStreaming, sessionRef, session, loadSession, newConversation, newConversationForCustomer } = useChatController();
   const cursorVisible = useCursorBlink(isStreaming);
+  const isConnected = useNetworkState();
+  useNetworkRestore(() => void sessionRef.current.retryPendingMessages());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -101,10 +104,12 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={() => navigation.navigate('Customers')} style={styles.menuButton}>
             <Text style={styles.menuIcon}>👤</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Skills')} style={styles.menuButton}>
-            <Text style={styles.menuIcon}>⚙</Text>
-          </TouchableOpacity>
         </View>
+        {!isConnected && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>Offline — messages will send when connected</Text>
+          </View>
+        )}
         <FlatList
           ref={listRef}
           data={messages}
@@ -158,5 +163,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     flexGrow: 1,
     justifyContent: 'flex-end',
+  },
+  offlineBanner: {
+    backgroundColor: '#3f3f46',
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  offlineBannerText: {
+    color: '#a1a1aa',
+    fontSize: 12,
   },
 });

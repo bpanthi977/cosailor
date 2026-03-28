@@ -14,9 +14,8 @@ import {
   linkSessionToCustomer,
   getCustomerForSession,
   upsertCustomer,
-  listSkills,
-  type DbSkill,
 } from './db';
+import { onNetworkRestore } from './hooks/useNetwork';
 
 export type ToolStep = {
   id: number;
@@ -43,6 +42,7 @@ export class ConversationSession {
   private notify: (msgs: ChatMessage[]) => void;
   private onStreaming: (v: boolean) => void;
   private customerContext: { id: number; name: string } | null;
+  private unsubNetworkRestore: (() => void) | null = null;
 
   constructor(
     notify: (msgs: ChatMessage[]) => void,
@@ -54,15 +54,18 @@ export class ConversationSession {
     this.onStreaming = onStreaming;
     this.sessionId = sessionId ?? null;
     this.customerContext = customerContext ?? null;
+    this.unsubNetworkRestore = onNetworkRestore(() => void this.retryPendingMessages());
   }
 
-  private buildHistory(msgs: Message[], skills: DbSkill[] = []): Message[] {
+  destroy(): void {
+    this.unsubNetworkRestore?.();
+    this.unsubNetworkRestore = null;
+  }
+
+  private buildHistory(msgs: Message[]): Message[] {
     return [
       ...(this.customerContext
         ? [{ role: 'system' as const, content: `The customer in this conversation is "${this.customerContext.name}".` }]
-        : []),
-      ...(skills.length > 0
-        ? [{ role: 'system' as const, content: `Available skills (call read_skill with the exact name to get full instructions before applying):\n${skills.map(s => `- ${s.name}: ${s.summary}`).join('\n')}` }]
         : []),
       ...msgs,
     ];
@@ -134,7 +137,15 @@ export class ConversationSession {
     return this.sessionId;
   }
 
-  async sendMessage(text: string): Promise<void> {
+  async retryPendingMessages(): Promise<void> {
+    if (this.streaming) return;
+    const failedMsg = this.msgs.find(m => m.role === 'assistant' && (m.status === 'failed' || m.status === 'pending'));
+    if (failedMsg?.id !== undefined) {
+      await this.retryMessage(failedMsg.id);
+    }
+  }
+
+  async sendMessage(text: string, options?: { onTextChunk?: (chunk: string) => void }): Promise<void> {
     if (!text.trim() || this.streaming) return;
     const isNew = this.sessionId === null;
     const sid = await this.ensureSession();
@@ -153,15 +164,13 @@ export class ConversationSession {
       { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
     ]);
 
-    const skills = await listSkills();
     const history = this.buildHistory(
       this.msgs
         .filter(m => m.id !== aiMsgId)
-        .map(m => ({ role: m.role, content: m.content })),
-      skills
+        .map(m => ({ role: m.role, content: m.content }))
     );
 
-    await this.streamResponse(aiMsgId, history);
+    await this.streamResponse(aiMsgId, history, options?.onTextChunk);
   }
 
   async retryMessage(failedMsgId: number): Promise<void> {
@@ -174,18 +183,16 @@ export class ConversationSession {
 
     const dbMsgs = await getMessagesForSession(this.sessionId);
     const failedIdx = dbMsgs.findIndex(m => m.id === failedMsgId);
-    const skills = await listSkills();
     const history = this.buildHistory(
       dbMsgs
         .slice(0, failedIdx)
-        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-      skills
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
     );
 
     await this.streamResponse(failedMsgId, history);
   }
 
-  private async streamResponse(aiMsgId: number, conversation: Message[]): Promise<void> {
+  private async streamResponse(aiMsgId: number, conversation: Message[], onTextChunk?: (chunk: string) => void): Promise<void> {
     this.streaming = true;
     this.onStreaming(true);
     let fullContent = '';
@@ -198,6 +205,7 @@ export class ConversationSession {
       for await (const event of stream) {
         if (event.type === 'text') {
           fullContent += event.content;
+          onTextChunk?.(event.content);
           this.update(prev =>
             prev.map(m => m.id === aiMsgId ? { ...m, content: fullContent } : m)
           );
@@ -234,7 +242,7 @@ export class ConversationSession {
       if (this.sessionId !== null) {
         const aiMsg = this.msgs.find(m => m.id === aiMsgId);
         for (const step of aiMsg?.toolSteps ?? []) {
-          if (step.name === 'fetch_notes' || step.name === 'save_note') {
+          if (step.name === 'save_note') {
             const a = step.args as { customer_name?: string };
             if (a.customer_name) {
               const customerId = await upsertCustomer(a.customer_name);
