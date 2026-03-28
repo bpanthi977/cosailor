@@ -3,7 +3,6 @@ import { initDb } from './db';
 import { AIProvider } from './ai/';
 import { makeOpenrouterProvider } from './ai/openrouterProvider';
 import { TOOL_DEFS, executeToolCall } from './ai/tools';
-import { closeDb } from './db/schema';
 
 class _App {
   private ai: AIProvider | null = null;
@@ -15,11 +14,6 @@ class _App {
     );
 
     await initDb()
-  }
-
-  close() {
-    closeDb();
-
   }
 
   getAI(): AIProvider {

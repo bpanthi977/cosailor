@@ -58,7 +58,7 @@ export async function executeToolCall(
       await upsertCustomer(a.customer_name);
       const result = await fetchNotes(a.customer_name);
       if (!result || result.notes.length === 0) return JSON.stringify([]);
-      return JSON.stringify(result.notes.map(n => n.text));
+      return JSON.stringify(result.notes.map(n => ({ text: n.text, session_id: n.session_id })));
     }
     case 'save_note': {
       await saveNote(a.customer_name, a.note, context.sessionId);

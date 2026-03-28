@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
@@ -52,12 +53,29 @@ const markdownStyles = {
   paragraph: { marginVertical: 2 },
 };
 
+function stepLabel(step: ToolStep): string {
+  const a = step.args as Record<string, string>;
+  switch (step.name) {
+    case 'fetch_notes':
+      return `Fetching notes for ${a.customer_name ?? '…'}`;
+    case 'save_note':
+      return `Saving note for ${a.customer_name ?? '…'}`;
+    case 'list_customers':
+      return 'Looking up customers';
+    case 'read_skill':
+      return `Reading skill: ${a.name ?? '…'}`;
+    default:
+      return step.name.replace(/_/g, ' ');
+  }
+}
+
 export default function MessageBubble({ message, cursorVisible, onRetry }: Props) {
   const isUser = message.role === 'user';
   const [expanded, setExpanded] = useState(false);
   const [rating, setRating] = useState<1 | -1 | null>(message.feedback?.rating ?? null);
   const [showComment, setShowComment] = useState(false);
   const [comment, setComment] = useState('');
+  const navigation = useNavigation<any>();
 
   const showFeedback = !isUser && !message.streaming && message.id !== undefined;
 
@@ -71,12 +89,11 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
     await saveFeedback(message.id!, rating!, comment.trim() || undefined);
     setShowComment(false);
   }
-  const displayText = isUser && message.streaming
+  const displayText = message.streaming
     ? message.content + (cursorVisible ? '|' : ' ')
     : message.content;
 
   const steps = message.toolSteps;
-  const savedNote = steps?.some(s => s.name === 'save_note' && s.status === 'ok') ?? false;
 
   return (
     <View style={[styles.bubbleRow, isUser ? styles.bubbleRowUser : styles.bubbleRowAI]}>
@@ -84,30 +101,20 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
         {isUser ? (
           <Text style={[styles.bubbleText, styles.bubbleTextUser]}>{displayText}</Text>
         ) : (
-          <>
-            <Markdown style={markdownStyles}>{displayText}</Markdown>
-            {message.streaming && (
-              <Text style={styles.streamingCursor}>{cursorVisible ? '|' : ' '}</Text>
-            )}
-          </>
+          <Markdown style={markdownStyles}>{displayText}</Markdown>
         )}
       </View>
-      {savedNote && (
-        <View style={styles.noteIndicator}>
-          <Text style={styles.noteIndicatorText}>📝 Note saved</Text>
-        </View>
-      )}
       {steps && steps.length > 0 && (
         <View style={styles.stepsContainer}>
           <TouchableOpacity onPress={() => setExpanded(e => !e)} style={styles.stepsToggle}>
             <Text style={styles.stepsToggleText}>
-              {expanded ? '▼' : '▶'} {steps.length} {steps.length === 1 ? 'step' : 'steps'}
+              {expanded ? '▾' : '▸'} {steps.length} {steps.length === 1 ? 'action' : 'actions'}
             </Text>
           </TouchableOpacity>
           {expanded && (
             <View style={styles.stepsList}>
               {steps.map(step => (
-                <StepRow key={step.id} step={step} />
+                <StepRow key={step.id} step={step} navigation={navigation} />
               ))}
             </View>
           )}
@@ -150,38 +157,75 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
   );
 }
 
-function StepRow({ step }: { step: ToolStep }) {
+type FetchedNote = { text: string; session_id: number };
+
+function StepRow({ step, navigation }: { step: ToolStep; navigation: any }) {
+  const accentColor = stepAccentColor(step.status);
+  const label = stepLabel(step);
+
+  let fetchedNotes: FetchedNote[] | null = null;
+  if (step.name === 'fetch_notes' && step.result && step.status === 'ok') {
+    try {
+      const parsed = JSON.parse(step.result);
+      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
+        fetchedNotes = parsed as FetchedNote[];
+      }
+    } catch {
+      // not parseable — fall back to plain result
+    }
+  }
+
   return (
-    <View style={styles.stepRow}>
+    <View style={[styles.stepRow, { borderLeftColor: accentColor }]}>
       <View style={styles.stepHeader}>
-        <Text style={styles.stepName}>{step.name}</Text>
+        <Text style={styles.stepLabel}>{label}</Text>
         <View style={[styles.badge, { backgroundColor: badgeColor(step.status) }]}>
           <Text style={styles.badgeText}>{step.status}</Text>
         </View>
       </View>
-      <Text style={styles.stepArgs}>{argsSummary(step.args)}</Text>
-      {step.result != null && (
-        <Text style={styles.stepResult}>{resultSummary(step.result)}</Text>
+
+      {fetchedNotes !== null ? (
+        fetchedNotes.length === 0 ? (
+          <Text style={styles.stepMuted}>No notes found</Text>
+        ) : (
+          <View style={styles.notesList}>
+            {fetchedNotes.map((note, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.noteItem}
+                onPress={() => navigation.navigate('Home', { sessionId: note.session_id })}
+              >
+                <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
+                <Text style={styles.noteArrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )
+      ) : (
+        step.result != null && (
+          <Text style={styles.stepResult}>{resultSummary(step.result)}</Text>
+        )
       )}
     </View>
   );
 }
 
-function argsSummary(args: object): string {
-  const entries = Object.entries(args as Record<string, unknown>);
-  if (entries.length === 0) return '';
-  const parts = entries.map(([k, v]) => `${k}=${String(v)}`).join(', ');
-  return parts.length > 40 ? parts.slice(0, 40) + '…' : parts;
-}
-
 function resultSummary(result: string): string {
   const trimmed = result.trim();
-  return trimmed.length > 60 ? trimmed.slice(0, 60) + '…' : trimmed;
+  return trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed;
+}
+
+function stepAccentColor(status: ToolStep['status']): string {
+  switch (status) {
+    case 'running': return '#854d0e';
+    case 'ok': return '#166534';
+    case 'failed': return '#7f1d1d';
+  }
 }
 
 function badgeColor(status: ToolStep['status']): string {
   switch (status) {
-    case 'running': return '#854d0e';
+    case 'running': return '#292524';
     case 'ok': return '#14532d';
     case 'failed': return '#7f1d1d';
   }
@@ -219,38 +263,45 @@ const styles = StyleSheet.create({
   bubbleTextUser: {
     color: colors.primaryForeground,
   },
-  bubbleTextAI: {
-    color: '#fafafa',
-  },
   stepsContainer: {
     marginTop: spacing.xs,
     paddingLeft: spacing.xs,
   },
   stepsToggle: {
-    paddingVertical: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+    backgroundColor: '#27272a',
   },
   stepsToggleText: {
     color: colors.mutedForeground,
     ...typography.sm,
   },
   stepsList: {
+    marginTop: spacing.xs,
     gap: spacing.xs,
   },
   stepRow: {
-    backgroundColor: '#27272a',
+    backgroundColor: '#1e1e20',
     borderRadius: radius.sm,
-    padding: spacing.sm,
+    borderLeftWidth: 3,
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.sm,
+    paddingLeft: spacing.sm,
   },
   stepHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 2,
+    marginBottom: 4,
   },
-  stepName: {
-    color: '#fafafa',
+  stepLabel: {
+    color: '#e4e4e7',
     ...typography.sm,
-    fontWeight: '600',
+    fontWeight: '500',
+    flex: 1,
+    marginRight: spacing.xs,
   },
   badge: {
     borderRadius: radius.sm,
@@ -259,11 +310,11 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#fafafa',
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: '500',
   },
-  stepArgs: {
+  stepMuted: {
     color: colors.mutedForeground,
     ...typography.sm,
   },
@@ -272,17 +323,28 @@ const styles = StyleSheet.create({
     ...typography.sm,
     marginTop: 2,
   },
-  streamingCursor: {
-    color: '#fafafa',
-    ...typography.base,
+  notesList: {
+    marginTop: 4,
+    gap: 4,
   },
-  noteIndicator: {
-    marginTop: spacing.xs,
-    paddingLeft: spacing.xs,
+  noteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#27272a',
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.xs,
   },
-  noteIndicatorText: {
-    color: colors.mutedForeground,
+  noteText: {
+    flex: 1,
+    color: '#d4d4d8',
     ...typography.sm,
+  },
+  noteArrow: {
+    color: colors.mutedForeground,
+    fontSize: 16,
+    lineHeight: 20,
   },
   retryButton: {
     marginTop: spacing.xs,

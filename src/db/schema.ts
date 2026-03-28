@@ -7,14 +7,7 @@ export function getDb(): SQLite.SQLiteDatabase {
   return db;
 }
 
-export function closeDb() {
-  if (!db) throw new Error("DB not initialized. Can't close.");
-  db.closeSync();
-}
-
 export async function initDb(): Promise<void> {
-  if (db) return;
-
   db = await SQLite.openDatabaseAsync('cosailor.db');
 
   await db.execAsync(`

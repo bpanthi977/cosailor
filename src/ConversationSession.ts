@@ -134,7 +134,7 @@ export class ConversationSession {
     return this.sessionId;
   }
 
-  async sendMessage(text: string, options?: { onTextChunk?: (chunk: string) => void }): Promise<void> {
+  async sendMessage(text: string): Promise<void> {
     if (!text.trim() || this.streaming) return;
     const isNew = this.sessionId === null;
     const sid = await this.ensureSession();
@@ -161,7 +161,7 @@ export class ConversationSession {
       skills
     );
 
-    await this.streamResponse(aiMsgId, history, options?.onTextChunk);
+    await this.streamResponse(aiMsgId, history);
   }
 
   async retryMessage(failedMsgId: number): Promise<void> {
@@ -185,7 +185,7 @@ export class ConversationSession {
     await this.streamResponse(failedMsgId, history);
   }
 
-  private async streamResponse(aiMsgId: number, conversation: Message[], onTextChunk?: (chunk: string) => void): Promise<void> {
+  private async streamResponse(aiMsgId: number, conversation: Message[]): Promise<void> {
     this.streaming = true;
     this.onStreaming(true);
     let fullContent = '';
@@ -198,7 +198,6 @@ export class ConversationSession {
       for await (const event of stream) {
         if (event.type === 'text') {
           fullContent += event.content;
-          onTextChunk?.(event.content);
           this.update(prev =>
             prev.map(m => m.id === aiMsgId ? { ...m, content: fullContent } : m)
           );
@@ -235,7 +234,7 @@ export class ConversationSession {
       if (this.sessionId !== null) {
         const aiMsg = this.msgs.find(m => m.id === aiMsgId);
         for (const step of aiMsg?.toolSteps ?? []) {
-          if (step.name === 'save_note') {
+          if (step.name === 'fetch_notes' || step.name === 'save_note') {
             const a = step.args as { customer_name?: string };
             if (a.customer_name) {
               const customerId = await upsertCustomer(a.customer_name);
