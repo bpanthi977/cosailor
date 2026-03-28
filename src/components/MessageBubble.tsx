@@ -13,7 +13,7 @@ type Props = {
 export default function MessageBubble({ message, cursorVisible, onRetry }: Props) {
   const isUser = message.role === 'user';
   const [expanded, setExpanded] = useState(false);
-  const [rating, setRating] = useState<1 | -1 | null>(null);
+  const [rating, setRating] = useState<1 | -1 | null>(message.feedback?.rating ?? null);
   const [showComment, setShowComment] = useState(false);
   const [comment, setComment] = useState('');
 

@@ -10,6 +10,7 @@ import {
   createToolCall,
   updateToolCall,
   getToolCallsForMessage,
+  getFeedbackForMessage,
 } from './db';
 
 export type ToolStep = {
@@ -27,6 +28,7 @@ export type ChatMessage = {
   streaming?: boolean;
   status?: 'ok' | 'pending' | 'failed';
   toolSteps?: ToolStep[];
+  feedback?: { rating: 1 | -1; comment: string | null };
 };
 
 export class ConversationSession {
@@ -78,6 +80,10 @@ export class ConversationSession {
                 status: tc.status === 'ok' ? 'ok' : tc.status === 'failed' ? 'failed' : 'running',
                 result: tc.result ?? undefined,
               }));
+            }
+            const feedback = await getFeedbackForMessage(m.id);
+            if (feedback) {
+              msg.feedback = feedback;
             }
           }
           return msg;

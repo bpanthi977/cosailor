@@ -89,3 +89,15 @@ export async function saveFeedback(
     comment ?? null
   );
 }
+
+export async function getFeedbackForMessage(
+  messageId: number
+): Promise<{ rating: 1 | -1; comment: string | null } | null> {
+  const db = getDb();
+  const row = await db.getFirstAsync<{ rating: number; comment: string | null }>(
+    'SELECT rating, comment FROM feedback WHERE message_id = ? ORDER BY id DESC LIMIT 1',
+    messageId
+  );
+  if (!row) return null;
+  return { rating: row.rating as 1 | -1, comment: row.comment };
+}
