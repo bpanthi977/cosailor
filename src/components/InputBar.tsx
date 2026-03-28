@@ -14,9 +14,10 @@ import { colors, radius, spacing, typography } from '../theme';
 type Props = {
   onSend: (text: string) => void;
   isStreaming: boolean;
+  onLive?: () => void;
 };
 
-export default function InputBar({ onSend, isStreaming }: Props) {
+export default function InputBar({ onSend, isStreaming, onLive }: Props) {
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [voiceAvailable, setVoiceAvailable] = useState(false);
@@ -86,6 +87,7 @@ export default function InputBar({ onSend, isStreaming }: Props) {
   };
 
   const sendDisabled = !inputText.trim() || isStreaming;
+  const showLive = !inputText.trim() && !isRecording && voiceAvailable && !!onLive;
 
   return (
     <View style={styles.inputBar}>
@@ -110,13 +112,19 @@ export default function InputBar({ onSend, isStreaming }: Props) {
           </TouchableOpacity>
         </Animated.View>
       )}
-      <TouchableOpacity
-        style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
-        onPress={handleSend}
-        disabled={sendDisabled}
-      >
-        <Text style={styles.sendButtonText}>Send</Text>
-      </TouchableOpacity>
+      {showLive ? (
+        <TouchableOpacity style={styles.liveButton} onPress={onLive} disabled={isStreaming}>
+          <Text style={styles.liveButtonText}>◎</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={sendDisabled}
+        >
+          <Text style={styles.sendButtonText}>Send</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -171,5 +179,17 @@ const styles = StyleSheet.create({
     color: colors.primaryForeground,
     fontWeight: '600',
     ...typography.base,
+  },
+  liveButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#18181b',
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveButtonText: {
+    color: '#22d3ee',
+    fontSize: 22,
   },
 });

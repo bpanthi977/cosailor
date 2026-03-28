@@ -79,12 +79,6 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={() => setSidebarOpen(true)} style={styles.menuButton}>
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('LiveConversation', { session: sessionRef.current })}
-            style={styles.menuButton}
-          >
-            <Text style={styles.menuIcon}>◉</Text>
-          </TouchableOpacity>
         </View>
         <FlatList
           ref={listRef}
@@ -95,7 +89,11 @@ export default function HomeScreen() {
           onContentSizeChange={scrollToEnd}
           onLayout={scrollToEnd}
         />
-        <InputBar onSend={text => session.sendMessage(text)} isStreaming={isStreaming} />
+        <InputBar
+          onSend={text => session.sendMessage(text)}
+          isStreaming={isStreaming}
+          onLive={() => navigation.navigate('LiveConversation', { session: sessionRef.current })}
+        />
       </KeyboardAvoidingView>
       <SessionSidebar
         visible={sidebarOpen}
@@ -116,7 +114,6 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,

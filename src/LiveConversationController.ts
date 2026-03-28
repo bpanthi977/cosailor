@@ -19,6 +19,7 @@ export class LiveConversationController {
   private silenceTimer: ReturnType<typeof setTimeout> | null = null;
   private interruptActive = false;
   private stopped = false;
+  private _hadPartialSpeech = false;
 
   constructor(private readonly session: ConversationSession) {}
 
@@ -74,6 +75,7 @@ export class LiveConversationController {
     // Cancel any running recognition before starting fresh
     VoiceInput.cancel();
     this.interruptActive = false;
+    this._hadPartialSpeech = false;
     this._setState({ phase: 'listening', partialText: initialText });
 
     VoiceInput.start({
@@ -93,15 +95,15 @@ export class LiveConversationController {
 
   private _onPartial(text: string): void {
     if (this.stopped || this.state.phase !== 'listening') return;
+    if (text.trim()) this._hadPartialSpeech = true;
     this._setState({ phase: 'listening', partialText: text });
     this._resetSilenceTimer();
   }
 
   private _onSilenceTimeout(): void {
     if (this.stopped || this.state.phase !== 'listening') return;
-    const partialText = (this.state as { phase: 'listening'; partialText: string }).partialText;
-    if (!partialText.trim()) {
-      // Nothing spoken yet — keep waiting
+    if (!this._hadPartialSpeech) {
+      // No speech detected yet in this session — keep waiting
       this._resetSilenceTimer();
       return;
     }
@@ -112,6 +114,7 @@ export class LiveConversationController {
   private async _onResult(text: string): Promise<void> {
     this._clearSilenceTimer();
     if (this.stopped) return;
+    if (this.state.phase !== 'listening' && this.state.phase !== 'processing_ai') return;
     if (!text.trim()) {
       if (!this.stopped) this._startListening('');
       return;

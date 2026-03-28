@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -17,6 +18,9 @@ import { spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LiveConversation'>;
 
+// How many pixels to leave below the spoken boundary so pending text peeks in
+const SCROLL_PADDING = 60;
+
 export default function LiveConversationScreen({ route, navigation }: Props) {
   const { session } = route.params;
   const {
@@ -25,30 +29,45 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
     messages,
     responseText,
     spokenCharIndex,
-    userBars,
-    aiBars,
+    bars,
+    waveformColor,
     start,
     endConversation,
   } = useLiveConversation(session);
 
   const listRef = useRef<FlatList>(null);
+  const exchangeScrollRef = useRef<ScrollView>(null);
+  const spokenViewRef = useRef<View>(null);
+  const isEndingRef = useRef(false);
 
   // Start listening as soon as the screen mounts
   useEffect(() => {
     start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Block back gesture while conversation is active
+  // Block back gesture while conversation is active (but not when user taps End)
   useEffect(() => {
     const unsub = navigation.addListener('beforeRemove', (e) => {
-      if (phase !== 'idle') {
+      if (!isEndingRef.current && phase !== 'idle') {
         e.preventDefault();
       }
     });
     return unsub;
   }, [navigation, phase]);
 
+  // Scroll so the spoken/pending boundary stays in focus
+  useEffect(() => {
+    if (phase !== 'speaking_ai' || !spokenViewRef.current) return;
+    spokenViewRef.current.measure((_x, _y, _w, h) => {
+      exchangeScrollRef.current?.scrollTo({
+        y: Math.max(0, h - SCROLL_PADDING),
+        animated: true,
+      });
+    });
+  }, [spokenCharIndex, phase]);
+
   const handleEnd = () => {
+    isEndingRef.current = true;
     endConversation();
     navigation.goBack();
   };
@@ -60,6 +79,11 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
       </Text>
     </View>
   );
+
+  const waveformLabel =
+    phase === 'listening' ? 'You' :
+    phase === 'speaking_ai' ? 'CoSailor' :
+    phase === 'processing_ai' ? '...' : '';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -74,10 +98,15 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
         style={styles.transcriptList}
       />
 
-      {/* Current exchange — prominent foreground text */}
-      <View style={styles.currentExchange}>
+      {/* Current exchange — prominent foreground text, scrollable */}
+      <ScrollView
+        ref={exchangeScrollRef}
+        style={styles.currentExchangeScroll}
+        contentContainerStyle={styles.currentExchangeContent}
+        scrollEnabled={false}
+      >
         {phase === 'listening' && (
-          <Text style={styles.currentText} numberOfLines={6}>
+          <Text style={styles.currentText}>
             {partialText || '...'}
           </Text>
         )}
@@ -85,10 +114,16 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
           <ActivityIndicator color="#a1a1aa" size="small" />
         )}
         {phase === 'speaking_ai' && responseText ? (
-          <Text style={styles.currentText} numberOfLines={6}>
-            <Text style={styles.spokenText}>{responseText.slice(0, spokenCharIndex)}</Text>
-            <Text style={styles.pendingText}>{responseText.slice(spokenCharIndex)}</Text>
-          </Text>
+          <>
+            <View ref={spokenViewRef}>
+              <Text style={[styles.currentText, styles.spokenText]}>
+                {responseText.slice(0, spokenCharIndex)}
+              </Text>
+            </View>
+            <Text style={[styles.currentText, styles.pendingText]}>
+              {responseText.slice(spokenCharIndex)}
+            </Text>
+          </>
         ) : null}
         {phase === 'idle' && (
           <Text style={styles.idleText}>Tap to start</Text>
@@ -96,18 +131,14 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
         {phase === 'error' && (
           <Text style={styles.errorText}>Reconnecting...</Text>
         )}
-      </View>
+      </ScrollView>
 
-      {/* Waveforms */}
-      <View style={styles.waveforms}>
-        <View style={styles.waveformSide}>
-          <Waveform bars={userBars} color="#6366f1" />
-          <Text style={styles.waveformLabel}>You</Text>
-        </View>
-        <View style={styles.waveformSide}>
-          <Waveform bars={aiBars} color="#22d3ee" />
-          <Text style={styles.waveformLabel}>CoSailor</Text>
-        </View>
+      {/* Single waveform */}
+      <View style={styles.waveformSection}>
+        <Waveform bars={bars} color={waveformColor} height={56} barWidth={6} />
+        {waveformLabel ? (
+          <Text style={styles.waveformLabel}>{waveformLabel}</Text>
+        ) : null}
       </View>
 
       {/* End button */}
@@ -157,14 +188,16 @@ const styles = StyleSheet.create({
     color: '#e4e4e7',
     ...typography.base,
   },
-  currentExchange: {
-    minHeight: 100,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+  currentExchangeScroll: {
+    maxHeight: 160,
     borderTopWidth: 1,
     borderTopColor: '#27272a',
+  },
+  currentExchangeContent: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    minHeight: 80,
+    justifyContent: 'center',
   },
   currentText: {
     color: '#fafafa',
@@ -181,23 +214,20 @@ const styles = StyleSheet.create({
   },
   idleText: {
     color: '#71717a',
+    textAlign: 'center',
     ...typography.base,
   },
   errorText: {
     color: '#f87171',
+    textAlign: 'center',
     ...typography.base,
   },
-  waveforms: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: spacing.xl,
+  waveformSection: {
+    alignItems: 'center',
     paddingVertical: spacing.md,
+    gap: spacing.xs,
     borderTopWidth: 1,
     borderTopColor: '#27272a',
-  },
-  waveformSide: {
-    alignItems: 'center',
-    gap: spacing.xs,
   },
   waveformLabel: {
     color: '#71717a',

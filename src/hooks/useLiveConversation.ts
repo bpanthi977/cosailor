@@ -10,9 +10,9 @@ function createBars(): Animated.Value[] {
 }
 
 function animateBarsActive(bars: Animated.Value[]): Animated.CompositeAnimation {
+  const peaks = [0.9, 0.4, 0.75, 0.3, 0.85];
+  const troughs = [0.25, 0.7, 0.2, 0.6, 0.15];
   const animations = bars.map((bar, i) => {
-    const peaks = [0.9, 0.4, 0.75, 0.3, 0.85];
-    const troughs = [0.25, 0.7, 0.2, 0.6, 0.15];
     const duration = 180 + i * 45;
     return Animated.loop(
       Animated.sequence([
@@ -45,8 +45,8 @@ export type UseLiveConversationReturn = {
   messages: ChatMessage[];
   responseText: string;
   spokenCharIndex: number;
-  userBars: Animated.Value[];
-  aiBars: Animated.Value[];
+  bars: Animated.Value[];
+  waveformColor: string;
   start: () => void;
   endConversation: () => void;
 };
@@ -83,6 +83,7 @@ export function useLiveConversation(session: ConversationSession): UseLiveConver
 
     if (phase === 'speaking_ai' && prevPhase !== 'speaking_ai') {
       aiAnimRef.current?.stop();
+      animateBarsIdle(userBars);
       const anim = animateBarsActive(aiBars);
       aiAnimRef.current = anim;
       anim.start();
@@ -95,7 +96,7 @@ export function useLiveConversation(session: ConversationSession): UseLiveConver
     if (phase === 'listening') {
       const partialText = (liveState as { phase: 'listening'; partialText: string }).partialText;
       driveUserBars(userBars, partialText);
-    } else {
+    } else if (phase !== 'speaking_ai') {
       animateBarsIdle(userBars);
     }
   }, [liveState, userBars, aiBars]);
@@ -111,14 +112,18 @@ export function useLiveConversation(session: ConversationSession): UseLiveConver
     ? (liveState as { phase: 'speaking_ai'; responseText: string; spokenCharIndex: number }).spokenCharIndex
     : 0;
 
+  // Single waveform: user bars during listening, AI bars during speaking
+  const bars = phase === 'speaking_ai' ? aiBars : userBars;
+  const waveformColor = phase === 'speaking_ai' ? '#22d3ee' : phase === 'listening' ? '#6366f1' : '#3f3f46';
+
   return {
     phase,
     partialText,
     messages,
     responseText,
     spokenCharIndex,
-    userBars,
-    aiBars,
+    bars,
+    waveformColor,
     start: () => controllerRef.current?.start(),
     endConversation: () => controllerRef.current?.stop(),
   };
