@@ -55,6 +55,10 @@ export default function CustomerDetailScreen() {
     setSessions(prev => prev.filter(s => s.id !== sessionId));
   }, []);
 
+  const handleSelectNote = useCallback((note: Note) => {
+    navigation.navigate('Home', { customerId, customerName, sessionId: note.session_id });
+  }, [navigation, customerId, customerName]);
+
   const handleSelectSession = useCallback((session: Session) => {
     navigation.navigate('Home', { customerId, customerName, sessionId: session.id });
   }, [navigation, customerId, customerName]);
@@ -79,7 +83,9 @@ export default function CustomerDetailScreen() {
         ) : (
           notes.map(note => (
             <View key={note.id} style={styles.noteRow}>
-              <Text style={styles.noteText}>{note.text}</Text>
+              <TouchableOpacity style={styles.noteContent} onPress={() => handleSelectNote(note)}>
+                <Text style={styles.noteText}>{note.text}</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteButton}
                 onPress={() => handleDeleteNote(note.id)}
@@ -187,11 +193,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
+  noteContent: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
   noteText: {
     ...typography.base,
     color: '#fafafa',
-    flex: 1,
-    marginRight: spacing.sm,
   },
   sessionRow: {
     flexDirection: 'row',
