@@ -4,11 +4,12 @@ Cosailor is a mobile-first, multimodal AI chat app for field sales reps. It acts
 
 ## Main Features
 
-- User can have conversation with AI via chat, or voice input 
+- User can have conversation with AI via chat, or voice input
 - User can have live voice converstation with AI
-- All sessions are saved 
-- AI has access to tools so that it can save notes regarding customers and the orders they made 
+- All sessions are saved
+- AI has access to tools so that it can save notes regarding customers and the orders they made
 - AI keep track of customers
+- Skills system: user-defined prompt templates the AI can invoke for structured outputs (meeting notes, client briefs, etc.)
 
 ## Core Principles
 
@@ -37,11 +38,12 @@ More details in [controllers.md](controllers.md)
 
 More details in [ui.md](ui.md)
 
-- Home screen shows conversation view where user starts a new conversation. Text entry field at the bottom. Hamburger icon opens the session sidebar.
+- Home screen shows conversation view where user starts a new conversation. Text entry field at the bottom. Hamburger icon opens the session sidebar. Gear icon (⚙) opens Skills settings.
 - Sidebar (slide-in drawer from left) lists past sessions with search; tap to resume or start a new conversation.
 - For search customers interface, user can select a customer and see all the conversations that refer to him
 - Live conversation UI: Full-screen modal. Continuous bidirectional audio — user speaks, agent responds via TTS. Waveform shown for both sides.
 - Inline voice input: Hold mic button → device speech recognition → transcript injected into chat input → sent as user message. No screen change.
+- Skills screen: list/add/edit/delete skills. Each skill has a name, summary (shown to AI in every system prompt), and instructions (returned when AI calls `read_skill`).
 
 
 

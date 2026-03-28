@@ -4,4 +4,5 @@ export type RootStackParamList = {
   Home: { customerId?: number; customerName?: string; sessionId?: number } | undefined;
   LiveConversation: { session: ConversationSession };
   Customers: undefined;
+  Skills: undefined;
 };

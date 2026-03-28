@@ -21,3 +21,5 @@ export {
   getSessionsForCustomer,
   getCustomerForSession,
 } from './customers';
+export type { DbSkill } from './skills';
+export { listSkills, getSkill, createSkill, updateSkill, deleteSkill } from './skills';

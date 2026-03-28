@@ -14,6 +14,8 @@ import {
   linkSessionToCustomer,
   getCustomerForSession,
   upsertCustomer,
+  listSkills,
+  type DbSkill,
 } from './db';
 
 export type ToolStep = {
@@ -54,10 +56,13 @@ export class ConversationSession {
     this.customerContext = customerContext ?? null;
   }
 
-  private buildHistory(msgs: Message[]): Message[] {
+  private buildHistory(msgs: Message[], skills: DbSkill[] = []): Message[] {
     return [
       ...(this.customerContext
         ? [{ role: 'system' as const, content: `The customer in this conversation is "${this.customerContext.name}".` }]
+        : []),
+      ...(skills.length > 0
+        ? [{ role: 'system' as const, content: `Available skills (call read_skill with the exact name to get full instructions before applying):\n${skills.map(s => `- ${s.name}: ${s.summary}`).join('\n')}` }]
         : []),
       ...msgs,
     ];
@@ -148,10 +153,12 @@ export class ConversationSession {
       { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
     ]);
 
+    const skills = await listSkills();
     const history = this.buildHistory(
       this.msgs
         .filter(m => m.id !== aiMsgId)
-        .map(m => ({ role: m.role, content: m.content }))
+        .map(m => ({ role: m.role, content: m.content })),
+      skills
     );
 
     await this.streamResponse(aiMsgId, history, options?.onTextChunk);
@@ -167,10 +174,12 @@ export class ConversationSession {
 
     const dbMsgs = await getMessagesForSession(this.sessionId);
     const failedIdx = dbMsgs.findIndex(m => m.id === failedMsgId);
+    const skills = await listSkills();
     const history = this.buildHistory(
       dbMsgs
         .slice(0, failedIdx)
-        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      skills
     );
 
     await this.streamResponse(failedMsgId, history);

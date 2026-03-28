@@ -10,6 +10,7 @@ import type { RootStackParamList } from './src/navigation/types';
 import HomeScreen from './src/screens/HomeScreen';
 import LiveConversationScreen from './src/screens/LiveConversationScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
+import SkillsScreen from './src/screens/SkillsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -45,6 +46,7 @@ export default function AppView() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Customers" component={CustomersScreen} />
+          <Stack.Screen name="Skills" component={SkillsScreen} />
           <Stack.Screen
             name="LiveConversation"
             component={LiveConversationScreen}

@@ -12,7 +12,12 @@ tool_calls  (id, message_id, tool_name, arguments, result, status)
 feedback    (id, message_id, rating, comment, created_at)
 customers   (id, name, updated_at)
 notes       (id, customer_id, session_id, text, created_at)
+skills      (id, name, summary, instructions)
+            -- summary: short description shown to AI in every system prompt
+            -- instructions: full text returned to AI via read_skill tool
 ```
+
+Two default skills ("Pre-meeting Brief", "Meeting Notes") are seeded during DB migration v2.
 
 ## Offline Resilience
 
@@ -97,4 +102,13 @@ listCustomers(): Promise<Customer[]>
 saveNote(customerName, text, sessionId): Promise<void>
 fetchNotes(customerName): Promise<{ customer: Customer; notes: Note[] } | null>
 linkSessionToCustomer(sessionId, customerId): Promise<void>
+
+// Skills
+listSkills(): Promise<DbSkill[]>
+getSkill(name: string): Promise<DbSkill | null>
+createSkill(name, summary, instructions): Promise<number>
+updateSkill(id, name, summary, instructions): Promise<void>
+deleteSkill(id): Promise<void>
 ```
+
+`DbSkill` type: `{ id: number; name: string; summary: string; instructions: string }`

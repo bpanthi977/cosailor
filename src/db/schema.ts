@@ -78,6 +78,13 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_notes_customer_id ON notes(customer_id);
     CREATE INDEX IF NOT EXISTS idx_session_customers_session ON session_customers(session_id);
     CREATE INDEX IF NOT EXISTS idx_session_customers_customer ON session_customers(customer_id);
+
+    CREATE TABLE IF NOT EXISTS skills (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      name         TEXT NOT NULL UNIQUE,
+      summary      TEXT NOT NULL DEFAULT '',
+      instructions TEXT NOT NULL DEFAULT ''
+    );
   `);
 
   const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -93,6 +100,34 @@ export async function initDb(): Promise<void> {
 
       CREATE INDEX IF NOT EXISTS idx_notes_session_id ON notes(session_id);
       PRAGMA user_version = 1`
+      );
+    });
+  }
+
+  if (dbVersion < 2) {
+    const d = db;
+    await d.withTransactionAsync(async () => {
+      await d.execAsync(`
+      INSERT OR IGNORE INTO skills (name, summary, instructions) VALUES
+        ('Pre-meeting Brief',
+         'Prepare a structured client briefing before a meeting',
+         'Fetch the customer notes first using fetch_notes. Then structure your response as a pre-meeting brief with these sections:
+**Client Overview:** who they are, industry, context
+**Recent History:** last interactions, orders, open issues from notes
+**Key Talking Points:** what to focus on in this meeting
+**Potential Objections:** anticipate concerns
+**Suggested Agenda:** bullet list of meeting flow'),
+        ('Meeting Notes',
+         'Format conversation details into organized meeting notes',
+         'Structure your response as meeting notes with these sections:
+**Date:** [today''s date]
+**Attendees:** [list if mentioned]
+**Key Discussion Points:** bullet list of topics covered
+**Action Items:** each with owner and deadline if known
+**Next Steps:** bullet list
+Be concise and professional.');
+
+      PRAGMA user_version = 2`
       );
     });
   }

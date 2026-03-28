@@ -101,6 +101,9 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={() => navigation.navigate('Customers')} style={styles.menuButton}>
             <Text style={styles.menuIcon}>👤</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Skills')} style={styles.menuButton}>
+            <Text style={styles.menuIcon}>⚙</Text>
+          </TouchableOpacity>
         </View>
         <FlatList
           ref={listRef}
