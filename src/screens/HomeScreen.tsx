@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -9,7 +9,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { ConversationSession, type ChatMessage } from '../ConversationSession';
@@ -37,6 +38,12 @@ function useChatController() {
     setMessages([]);
   }, []);
 
+  const newConversationForCustomer = useCallback((customerId: number, customerName: string) => {
+    const cs = new ConversationSession(setMessages, setIsStreaming, undefined, { id: customerId, name: customerName });
+    sessionRef.current = cs;
+    setMessages([]);
+  }, []);
+
   // Re-register callbacks when screen regains focus (after LiveConversation modal)
   useFocusEffect(
     useCallback(() => {
@@ -46,15 +53,26 @@ function useChatController() {
     }, []),
   );
 
-  return { messages, isStreaming, sessionRef, session: sessionRef.current, loadSession, newConversation };
+  return { messages, isStreaming, sessionRef, session: sessionRef.current, loadSession, newConversation, newConversationForCustomer };
 }
 
 export default function HomeScreen() {
-  const { messages, isStreaming, sessionRef, session, loadSession, newConversation } = useChatController();
+  const { messages, isStreaming, sessionRef, session, loadSession, newConversation, newConversationForCustomer } = useChatController();
   const cursorVisible = useCursorBlink(isStreaming);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Home'>>();
+  const { customerId, customerName, sessionId } = route.params ?? {};
+
+  useEffect(() => {
+    if (sessionId) {
+      loadSession({ id: sessionId } as Session);
+    } else if (customerId && customerName) {
+      newConversationForCustomer(customerId, customerName);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, customerName, sessionId]);
 
   const scrollToEnd = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
@@ -78,6 +96,10 @@ export default function HomeScreen() {
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => setSidebarOpen(true)} style={styles.menuButton}>
             <Text style={styles.menuIcon}>☰</Text>
+          </TouchableOpacity>
+          <View style={styles.topBarSpacer} />
+          <TouchableOpacity onPress={() => navigation.navigate('Customers')} style={styles.menuButton}>
+            <Text style={styles.menuIcon}>👤</Text>
           </TouchableOpacity>
         </View>
         <FlatList
@@ -119,6 +141,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
+  topBarSpacer: { flex: 1 },
   menuButton: {
     padding: spacing.sm,
   },

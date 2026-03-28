@@ -11,6 +11,8 @@ import {
   updateToolCall,
   getToolCallsForMessage,
   getFeedbackForMessage,
+  linkSessionToCustomer,
+  getCustomerForSession,
 } from './db';
 
 export type ToolStep = {
@@ -37,15 +39,27 @@ export class ConversationSession {
   private streaming = false;
   private notify: (msgs: ChatMessage[]) => void;
   private onStreaming: (v: boolean) => void;
+  private customerContext: { id: number; name: string } | null;
 
   constructor(
     notify: (msgs: ChatMessage[]) => void,
     onStreaming: (v: boolean) => void,
     sessionId?: number,
+    customerContext?: { id: number; name: string },
   ) {
     this.notify = notify;
     this.onStreaming = onStreaming;
     this.sessionId = sessionId ?? null;
+    this.customerContext = customerContext ?? null;
+  }
+
+  private buildHistory(msgs: Message[]): Message[] {
+    return [
+      ...(this.customerContext
+        ? [{ role: 'system' as const, content: `The customer in this conversation is "${this.customerContext.name}".` }]
+        : []),
+      ...msgs,
+    ];
   }
 
   private update(fn: (prev: ChatMessage[]) => ChatMessage[]) {
@@ -103,6 +117,8 @@ export class ConversationSession {
     );
     this.msgs = msgs;
     this.notify(msgs);
+    const customer = await getCustomerForSession(this.sessionId);
+    if (customer) this.customerContext = { id: customer.id, name: customer.name };
   }
 
   private async ensureSession(): Promise<number> {
@@ -118,6 +134,9 @@ export class ConversationSession {
     const sid = await this.ensureSession();
     if (isNew) {
       void updateSessionTitle(sid, text.slice(0, 40));
+      if (this.customerContext) {
+        await linkSessionToCustomer(sid, this.customerContext.id);
+      }
     }
     const userMsgId = await createMessage(sid, 'user', text, 'ok');
     const aiMsgId = await createMessage(sid, 'assistant', '', 'pending');
@@ -128,9 +147,11 @@ export class ConversationSession {
       { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
     ]);
 
-    const history: Message[] = this.msgs
-      .filter(m => m.id !== aiMsgId)
-      .map(m => ({ role: m.role, content: m.content }));
+    const history = this.buildHistory(
+      this.msgs
+        .filter(m => m.id !== aiMsgId)
+        .map(m => ({ role: m.role, content: m.content }))
+    );
 
     await this.streamResponse(aiMsgId, history);
   }
@@ -145,9 +166,11 @@ export class ConversationSession {
 
     const dbMsgs = await getMessagesForSession(this.sessionId);
     const failedIdx = dbMsgs.findIndex(m => m.id === failedMsgId);
-    const history: Message[] = dbMsgs
-      .slice(0, failedIdx)
-      .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    const history = this.buildHistory(
+      dbMsgs
+        .slice(0, failedIdx)
+        .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+    );
 
     await this.streamResponse(failedMsgId, history);
   }

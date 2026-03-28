@@ -1,5 +1,5 @@
 import { getDb } from './schema';
-import type { Customer, Note } from './types';
+import type { Customer, Note, Session } from './types';
 
 export async function upsertCustomer(name: string): Promise<number> {
   const db = getDb();
@@ -44,6 +44,27 @@ export async function fetchNotes(
     customer.id
   );
   return { customer, notes };
+}
+
+export async function getSessionsForCustomer(customerId: number): Promise<Session[]> {
+  const db = getDb();
+  return db.getAllAsync<Session>(
+    `SELECT s.* FROM sessions s
+     JOIN session_customers sc ON sc.session_id = s.id
+     WHERE sc.customer_id = ?
+     ORDER BY s.updated_at DESC`,
+    customerId
+  );
+}
+
+export async function getCustomerForSession(sessionId: number): Promise<Customer | null> {
+  const db = getDb();
+  return db.getFirstAsync<Customer>(
+    `SELECT c.* FROM customers c
+     JOIN session_customers sc ON sc.customer_id = c.id
+     WHERE sc.session_id = ?`,
+    sessionId
+  );
 }
 
 export async function linkSessionToCustomer(

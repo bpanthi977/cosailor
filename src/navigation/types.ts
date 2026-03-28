@@ -1,6 +1,7 @@
 import type { ConversationSession } from '../ConversationSession';
 
 export type RootStackParamList = {
-  Home: undefined;
+  Home: { customerId?: number; customerName?: string; sessionId?: number } | undefined;
   LiveConversation: { session: ConversationSession };
+  Customers: undefined;
 };

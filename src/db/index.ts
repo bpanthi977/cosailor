@@ -18,4 +18,6 @@ export {
   saveNote,
   fetchNotes,
   linkSessionToCustomer,
+  getSessionsForCustomer,
+  getCustomerForSession,
 } from './customers';
