@@ -13,6 +13,7 @@ import {
   getFeedbackForMessage,
   linkSessionToCustomer,
   getCustomerForSession,
+  upsertCustomer,
 } from './db';
 
 export type ToolStep = {
@@ -218,6 +219,18 @@ export class ConversationSession {
       }
       await appendMessageContent(aiMsgId, fullContent);
       await updateMessageStatus(aiMsgId, 'ok');
+      if (this.sessionId !== null) {
+        const aiMsg = this.msgs.find(m => m.id === aiMsgId);
+        for (const step of aiMsg?.toolSteps ?? []) {
+          if (step.name === 'fetch_notes' || step.name === 'save_note') {
+            const a = step.args as { customer_name?: string };
+            if (a.customer_name) {
+              const customerId = await upsertCustomer(a.customer_name);
+              await linkSessionToCustomer(this.sessionId, customerId);
+            }
+          }
+        }
+      }
       this.update(prev =>
         prev.map(m => m.id === aiMsgId ? { ...m, streaming: false, status: 'ok' } : m)
       );
