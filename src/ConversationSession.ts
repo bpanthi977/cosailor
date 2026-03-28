@@ -226,7 +226,7 @@ export class ConversationSession {
       if (this.sessionId !== null) {
         const aiMsg = this.msgs.find(m => m.id === aiMsgId);
         for (const step of aiMsg?.toolSteps ?? []) {
-          if (step.name === 'fetch_notes' || step.name === 'save_note') {
+          if (step.name === 'save_note') {
             const a = step.args as { customer_name?: string };
             if (a.customer_name) {
               const customerId = await upsertCustomer(a.customer_name);
