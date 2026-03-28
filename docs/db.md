@@ -11,7 +11,7 @@ messages    (id, session_id, role, content, status, created_at)
 tool_calls  (id, message_id, tool_name, arguments, result, status)
 feedback    (id, message_id, rating, comment, created_at)
 customers   (id, name, updated_at)
-notes       (id, customer_id, text, created_at)
+notes       (id, customer_id, session_id, text, created_at)
 ```
 
 ## Offline Resilience
@@ -57,6 +57,7 @@ export type Customer = {
 export type Note = {
   id: number;
   customer_id: number;
+  session_id: number;
   text: string;
   created_at: string;
 };
@@ -74,7 +75,7 @@ createSession(): Promise<number>
 updateSessionTitle(id, title): Promise<void>
 touchSession(id): Promise<void>
 getSession(id): Promise<Session | null>
-listSessions(): Promise<Session[]>          // ordered by updated_at DESC
+listSessions(): Promise<SessionListItem[]>  // ordered by updated_at DESC; SessionListItem = Session & { has_notes: boolean }
 
 // Messages
 createMessage(sessionId, role, content, status?): Promise<number>  // default status 'ok'
@@ -93,7 +94,7 @@ saveFeedback(messageId, rating: 1|-1, comment?): Promise<void>
 // Customers & notes
 upsertCustomer(name): Promise<number>       // INSERT OR IGNORE + return id
 listCustomers(): Promise<Customer[]>
-saveNote(customerName, text): Promise<void>
+saveNote(customerName, text, sessionId): Promise<void>
 fetchNotes(customerName): Promise<{ customer: Customer; notes: Note[] } | null>
 linkSessionToCustomer(sessionId, customerId): Promise<void>
 ```
