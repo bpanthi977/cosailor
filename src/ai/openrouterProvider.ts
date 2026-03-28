@@ -13,21 +13,22 @@ const SYSTEM_MESSAGE = 'You are a AI agent to help a salesman. Use provided tool
 
 type Tools = {
   defs: ToolDef[];
-  execute: (name: string, args: object) => Promise<string>;
+  execute: (name: string, args: object, context: { sessionId: number }) => Promise<string>;
 };
 
 type PendingToolCall = { id: string; name: string; argsJson: string };
 
 export function makeOpenrouterProvider(apiKey: string, tools?: Tools): AIProvider {
   return {
-    streamMessage: (messages) => xhrStream(apiKey, messages, tools),
+    streamMessage: (messages, context) => xhrStream(apiKey, messages, tools, context),
   };
 }
 
 async function* xhrStream(
   apiKey: string,
   messages: ProviderMessage[],
-  tools?: Tools
+  tools?: Tools,
+  context?: { sessionId: number }
 ): AsyncGenerator<AIStreamEvent> {
   // React Native's fetch buffers the full body before resolving, so it hangs
   // on streaming responses. XMLHttpRequest.onprogress fires incrementally.
@@ -135,7 +136,7 @@ async function* xhrStream(
     const toolResults: Array<{ tool: PendingToolCall; result: string }> = [];
     for (const { tool, args } of resolvedToolCalls) {
       yield { type: 'tool_start', name: tool.name, args };
-      const result = await tools.execute(tool.name, args);
+      const result = await tools.execute(tool.name, args, context!);
       yield { type: 'tool_done', name: tool.name, result };
       toolResults.push({ tool, result });
     }

@@ -55,6 +55,7 @@ export async function initDb(): Promise<void> {
     CREATE TABLE IF NOT EXISTS notes (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      session_id  INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
       text        TEXT NOT NULL,
       created_at  TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -78,12 +79,14 @@ export async function initDb(): Promise<void> {
   if (dbVersion < 1) {
     const d = db;
     await d.withTransactionAsync(async () => {
-      await d.execAsync('DELETE FROM notes');
-      await d.execAsync(
-        'ALTER TABLE notes ADD COLUMN session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE'
+      await d.execAsync(`
+      DELETE FROM notes;
+
+      ALTER TABLE notes ADD COLUMN session_id INTEGER REFERENCES sessions(id) ON DELETE CASCADE;
+
+      CREATE INDEX IF NOT EXISTS idx_notes_session_id ON notes(session_id);
+      PRAGMA user_version = 1`
       );
-      await d.execAsync('CREATE INDEX IF NOT EXISTS idx_notes_session_id ON notes(session_id)');
-      await d.execAsync('PRAGMA user_version = 1');
     });
   }
 }
