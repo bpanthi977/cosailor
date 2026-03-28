@@ -159,20 +159,90 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
 
 type FetchedNote = { text: string; session_id: number };
 
+function ExpandableText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 150;
+  return (
+    <TouchableOpacity activeOpacity={isLong ? 0.7 : 1} onPress={() => isLong && setExpanded(e => !e)}>
+      <Text style={styles.stepResult} numberOfLines={expanded ? undefined : 3}>{text}</Text>
+      {isLong && (
+        <Text style={styles.stepMuted}>{expanded ? 'show less' : 'show more'}</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function StringList({ items }: { items: string[] }) {
+  if (items.length === 0) {
+    return <Text style={styles.stepMuted}>→ Empty</Text>;
+  }
+  return (
+    <View style={styles.stringList}>
+      {items.map((item, i) => (
+        <Text key={i} style={styles.stringListItem}>• {item}</Text>
+      ))}
+    </View>
+  );
+}
+
+function NotesList({ notes, navigation }: { notes: FetchedNote[]; navigation: any }) {
+  const [expandedNotes, setExpandedNotes] = useState<boolean[]>(() => notes.map(() => false));
+
+  if (notes.length === 0) {
+    return <Text style={styles.stepMuted}>→ Empty</Text>;
+  }
+
+  function toggleNote(i: number) {
+    setExpandedNotes(prev => prev.map((v, idx) => idx === i ? !v : v));
+  }
+
+  return (
+    <View style={styles.notesList}>
+      {notes.map((note, i) => (
+        <View key={i} style={styles.noteItem}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => toggleNote(i)}>
+            <Text style={styles.noteText} numberOfLines={expandedNotes[i] ? undefined : 2}>
+              {note.text}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Home', { sessionId: note.session_id })}>
+            <Text style={styles.noteArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function StepRow({ step, navigation }: { step: ToolStep; navigation: any }) {
   const accentColor = stepAccentColor(step.status);
   const label = stepLabel(step);
 
-  let fetchedNotes: FetchedNote[] | null = null;
-  if (step.name === 'fetch_notes' && step.result && step.status === 'ok') {
-    try {
-      const parsed = JSON.parse(step.result);
-      if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object') {
-        fetchedNotes = parsed as FetchedNote[];
-      }
-    } catch {
-      // not parseable — fall back to plain result
+  function renderResult() {
+    if (step.result == null) return null;
+
+    if (step.name === 'fetch_notes' && step.status === 'ok') {
+      try {
+        const parsed = JSON.parse(step.result);
+        if (Array.isArray(parsed)) {
+          const notes = parsed.every(x => typeof x === 'object')
+            ? (parsed as FetchedNote[])
+            : [];
+          return <NotesList notes={notes} navigation={navigation} />;
+        }
+      } catch { /* fall through */ }
     }
+
+    if (step.name === 'list_customers' && step.status === 'ok') {
+      try {
+        const parsed = JSON.parse(step.result);
+        if (Array.isArray(parsed)) {
+          return <StringList items={parsed as string[]} />;
+        }
+      } catch { /* fall through */ }
+    }
+
+    return <ExpandableText text={step.result} />;
   }
 
   return (
@@ -183,36 +253,9 @@ function StepRow({ step, navigation }: { step: ToolStep; navigation: any }) {
           <Text style={styles.badgeText}>{step.status}</Text>
         </View>
       </View>
-
-      {fetchedNotes !== null ? (
-        fetchedNotes.length === 0 ? (
-          <Text style={styles.stepMuted}>No notes found</Text>
-        ) : (
-          <View style={styles.notesList}>
-            {fetchedNotes.map((note, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.noteItem}
-                onPress={() => navigation.navigate('Home', { sessionId: note.session_id })}
-              >
-                <Text style={styles.noteText} numberOfLines={2}>{note.text}</Text>
-                <Text style={styles.noteArrow}>›</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )
-      ) : (
-        step.result != null && (
-          <Text style={styles.stepResult}>{resultSummary(step.result)}</Text>
-        )
-      )}
+      {renderResult()}
     </View>
   );
-}
-
-function resultSummary(result: string): string {
-  const trimmed = result.trim();
-  return trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed;
 }
 
 function stepAccentColor(status: ToolStep['status']): string {
@@ -322,6 +365,14 @@ const styles = StyleSheet.create({
     color: '#a1a1aa',
     ...typography.sm,
     marginTop: 2,
+  },
+  stringList: {
+    marginTop: 4,
+    gap: 2,
+  },
+  stringListItem: {
+    color: '#d4d4d8',
+    ...typography.sm,
   },
   notesList: {
     marginTop: 4,
