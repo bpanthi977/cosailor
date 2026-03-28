@@ -10,4 +10,4 @@ async function* streamMessage(_messages: Message[]): AsyncGenerator<AIStreamEven
   }
 }
 
-export const mockProvider: AIProvider = { streamMessage };
+export const mockProvider: AIProvider = { streamMessage, close: () => {}};

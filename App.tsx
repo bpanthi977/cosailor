@@ -21,12 +21,15 @@ export default function AppView() {
     App.init()
       .then(() => setAppReady(true))
       .catch((e) => setError(String(e)));
+    return () => {
+      App.close();
+    }
   }, []);
 
   if (error) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.errorText}>DB error: {error}</Text>
+        <Text style={styles.errorText}>App init error: {error}</Text>
       </View>
     );
   }

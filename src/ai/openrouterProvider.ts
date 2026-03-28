@@ -21,6 +21,9 @@ type PendingToolCall = { id: string; name: string; argsJson: string };
 export function makeOpenrouterProvider(apiKey: string, tools?: Tools): AIProvider {
   return {
     streamMessage: (messages, context) => xhrStream(apiKey, messages, tools, context),
+    close: () => {
+      return;
+    }
   };
 }
 
