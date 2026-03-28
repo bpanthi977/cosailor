@@ -210,14 +210,16 @@ function NotesList({ notes, navigation }: { notes: FetchedNote[]; navigation: an
     <View style={styles.notesList}>
       {notes.map((note, i) => (
         <View key={i} style={styles.noteItem}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => toggleNote(i)}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.push('Home', { sessionId: note.session_id })}>
             <Text style={styles.noteText} numberOfLines={expandedNotes[i] ? undefined : 2}>
               {note.text}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.push('Home', { sessionId: note.session_id })}>
-            <Text style={styles.noteArrow}>›</Text>
-          </TouchableOpacity>
+          {note.text.length > 80 && (
+            <TouchableOpacity onPress={() => toggleNote(i)}>
+              <Text style={styles.noteArrow}>{expandedNotes[i] ? '↑' : '↓'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ))}
     </View>
