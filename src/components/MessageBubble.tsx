@@ -172,15 +172,25 @@ function ExpandableText({ text }: { text: string }) {
   );
 }
 
-function StringList({ items }: { items: string[] }) {
+function StringList({ items, limit = 3 }: { items: string[]; limit?: number }) {
+  const [showAll, setShowAll] = useState(false);
   if (items.length === 0) {
     return <Text style={styles.stepMuted}>→ Empty</Text>;
   }
+  const visible = showAll ? items : items.slice(0, limit);
+  const hasMore = items.length > limit;
   return (
     <View style={styles.stringList}>
-      {items.map((item, i) => (
+      {visible.map((item, i) => (
         <Text key={i} style={styles.stringListItem}>• {item}</Text>
       ))}
+      {hasMore && (
+        <TouchableOpacity onPress={() => setShowAll(s => !s)}>
+          <Text style={styles.stepMuted}>
+            {showAll ? 'show less' : `show ${items.length - limit} more…`}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -205,7 +215,7 @@ function NotesList({ notes, navigation }: { notes: FetchedNote[]; navigation: an
               {note.text}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Home', { sessionId: note.session_id })}>
+          <TouchableOpacity onPress={() => navigation.push('Home', { sessionId: note.session_id })}>
             <Text style={styles.noteArrow}>›</Text>
           </TouchableOpacity>
         </View>
@@ -231,6 +241,11 @@ function StepRow({ step, navigation }: { step: ToolStep; navigation: any }) {
           return <NotesList notes={notes} navigation={navigation} />;
         }
       } catch { /* fall through */ }
+    }
+
+    if (step.name === 'save_note' && step.status === 'ok') {
+      const noteText = (step.args as Record<string, string>).note;
+      if (noteText) return <ExpandableText text={noteText} />;
     }
 
     if (step.name === 'list_customers' && step.status === 'ok') {
