@@ -16,13 +16,14 @@ export async function listCustomers(): Promise<Customer[]> {
   return db.getAllAsync<Customer>('SELECT * FROM customers ORDER BY name ASC');
 }
 
-export async function saveNote(customerName: string, text: string): Promise<void> {
+export async function saveNote(customerName: string, text: string, sessionId: number): Promise<void> {
   const customerId = await upsertCustomer(customerName);
   const db = getDb();
   await db.runAsync(
-    'INSERT INTO notes (customer_id, text) VALUES (?, ?)',
+    'INSERT INTO notes (customer_id, text, session_id) VALUES (?, ?, ?)',
     customerId,
-    text
+    text,
+    sessionId
   );
   await db.runAsync(
     "UPDATE customers SET updated_at = datetime('now') WHERE id = ?",

@@ -8,7 +8,7 @@ import type {
 } from './types';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'google/gemini-2.0-flash-lite-001';
+const MODEL = 'google/gemini-3-flash-preview';
 const SYSTEM_MESSAGE = 'You are a AI agent to help a salesman. Use provided tools to store important information about customer, fetch customer information to give factual answer. Answer the last question asked by user.'
 
 type Tools = {

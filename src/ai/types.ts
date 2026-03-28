@@ -26,5 +26,5 @@ export type AIStreamEvent =
   | { type: 'tool_done'; name: string; result: string };
 
 export type AIProvider = {
-  streamMessage: (messages: Message[]) => AsyncGenerator<AIStreamEvent>;
+  streamMessage: (messages: Message[], context: { sessionId: number }) => AsyncGenerator<AIStreamEvent>;
 };

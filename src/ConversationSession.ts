@@ -182,7 +182,10 @@ export class ConversationSession {
     let fullContent = '';
     let pendingToolCallId: number | null = null;
     try {
-      const stream = App.getAI().streamMessage(conversation);
+      if (this.sessionId === null) {
+        console.error('[ConversationSession] streamResponse called without sessionId');
+      }
+      const stream = App.getAI().streamMessage(conversation, { sessionId: this.sessionId! });
       for await (const event of stream) {
         if (event.type === 'text') {
           fullContent += event.content;

@@ -32,6 +32,7 @@ export type Customer = {
 export type Note = {
   id: number;
   customer_id: number;
+  session_id: number;
   text: string;
   created_at: string;
 };

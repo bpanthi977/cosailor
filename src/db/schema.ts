@@ -71,4 +71,19 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_session_customers_session ON session_customers(session_id);
     CREATE INDEX IF NOT EXISTS idx_session_customers_customer ON session_customers(customer_id);
   `);
+
+  const versionRow = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const dbVersion = versionRow?.user_version ?? 0;
+
+  if (dbVersion < 1) {
+    const d = db;
+    await d.withTransactionAsync(async () => {
+      await d.execAsync('DELETE FROM notes');
+      await d.execAsync(
+        'ALTER TABLE notes ADD COLUMN session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE'
+      );
+      await d.execAsync('CREATE INDEX IF NOT EXISTS idx_notes_session_id ON notes(session_id)');
+      await d.execAsync('PRAGMA user_version = 1');
+    });
+  }
 }

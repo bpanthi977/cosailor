@@ -1,6 +1,8 @@
 import { getDb } from './schema';
 import type { Session } from './types';
 
+export type SessionListItem = Session & { has_notes: boolean };
+
 export async function createSession(): Promise<number> {
   const db = getDb();
   const result = await db.runAsync('INSERT INTO sessions (title) VALUES (?)', '');
@@ -29,7 +31,15 @@ export async function getSession(id: number): Promise<Session | null> {
   return db.getFirstAsync<Session>('SELECT * FROM sessions WHERE id = ?', id);
 }
 
-export async function listSessions(): Promise<Session[]> {
+export async function listSessions(): Promise<SessionListItem[]> {
   const db = getDb();
-  return db.getAllAsync<Session>('SELECT * FROM sessions ORDER BY updated_at DESC');
+  const rows = await db.getAllAsync<Session & { has_notes: number }>(
+    `SELECT s.*,
+       CASE WHEN COUNT(n.id) > 0 THEN 1 ELSE 0 END as has_notes
+     FROM sessions s
+     LEFT JOIN notes n ON n.session_id = s.id
+     GROUP BY s.id
+     ORDER BY s.updated_at DESC`
+  );
+  return rows.map(r => ({ ...r, has_notes: r.has_notes === 1 }));
 }

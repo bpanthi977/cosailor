@@ -10,7 +10,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { getSessions, type Session } from '../Sessions';
+import { getSessions, type SessionListItem } from '../Sessions';
 import { colors, radius, spacing, typography } from '../theme';
 
 const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.8;
@@ -18,7 +18,7 @@ const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.8;
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSelectSession: (session: Session) => void;
+  onSelectSession: (session: SessionListItem) => void;
   onNewConversation: () => void;
 };
 
@@ -31,7 +31,7 @@ export default function SessionSidebar({
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const [mounted, setMounted] = useState(visible);
   const [search, setSearch] = useState('');
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<SessionListItem[]>([]);
 
   useEffect(() => {
     if (visible) {
@@ -92,9 +92,12 @@ export default function SessionSidebar({
           keyExtractor={item => String(item.id)}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.sessionRow} onPress={() => onSelectSession(item)}>
-              <Text style={styles.sessionTitle} numberOfLines={1}>
-                {item.title || 'Untitled'}
-              </Text>
+              <View style={styles.sessionRowHeader}>
+                <Text style={styles.sessionTitle} numberOfLines={1}>
+                  {item.title || 'Untitled'}
+                </Text>
+                {item.has_notes && <Text style={styles.notesIndicator}>📝</Text>}
+              </View>
               <Text style={styles.sessionDate}>{formatDate(item.updated_at)}</Text>
             </TouchableOpacity>
           )}
@@ -173,9 +176,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
   },
+  sessionRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sessionTitle: {
     ...typography.base,
     color: '#fafafa',
+    flex: 1,
+  },
+  notesIndicator: {
+    fontSize: 12,
+    marginLeft: spacing.xs,
   },
   sessionDate: {
     ...typography.sm,

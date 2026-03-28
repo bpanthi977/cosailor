@@ -34,7 +34,8 @@ export const TOOL_DEFS: ToolDef[] = [
 
 export async function executeToolCall(
   name: string,
-  args: object
+  args: object,
+  context: { sessionId: number }
 ): Promise<string> {
   const a = args as Record<string, string>;
   switch (name) {
@@ -49,7 +50,7 @@ export async function executeToolCall(
       return JSON.stringify(result.notes.map(n => n.text));
     }
     case 'save_note': {
-      await saveNote(a.customer_name, a.note);
+      await saveNote(a.customer_name, a.note, context.sessionId);
       return 'Note saved.';
     }
     default:
