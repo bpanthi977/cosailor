@@ -18,7 +18,7 @@ type Tools = {
 
 type PendingToolCall = { id: string; name: string; argsJson: string };
 
-export function makeOpenrouterProvider(apiKey: string, tools?: Tools): AIProvider {
+export function makeOpenrouterProvider(apiKey: string, tools: Tools): AIProvider {
   return {
     streamMessage: (messages, context) => xhrStream(apiKey, messages, tools, context),
   };
@@ -27,9 +27,10 @@ export function makeOpenrouterProvider(apiKey: string, tools?: Tools): AIProvide
 async function* xhrStream(
   apiKey: string,
   messages: ProviderMessage[],
-  tools?: Tools,
-  context?: { sessionId: number }
+  tools: Tools,
+  context: { sessionId: number }
 ): AsyncGenerator<AIStreamEvent> {
+  console.log({apiKey, messages, context, tools});
   // React Native's fetch buffers the full body before resolving, so it hangs
   // on streaming responses. XMLHttpRequest.onprogress fires incrementally.
   const pending: AIStreamEvent[] = [];
@@ -155,6 +156,6 @@ async function* xhrStream(
       content: result,
       tool_call_id: tool.id,
     }));
-    yield* xhrStream(apiKey, [{ role: 'system', content: SYSTEM_MESSAGE }, ...messages, assistantMsg, ...toolResultMsgs], tools);
+    yield* xhrStream(apiKey, [{ role: 'system', content: SYSTEM_MESSAGE }, ...messages, assistantMsg, ...toolResultMsgs], tools, context);
   }
 }

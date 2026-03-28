@@ -246,7 +246,7 @@ export class ConversationSession {
       this.update(prev =>
         prev.map(m => m.id === aiMsgId ? { ...m, streaming: false, status: 'ok' } : m)
       );
-    } catch {
+    } catch (e) {
       if (pendingToolCallId !== null) {
         await updateToolCall(pendingToolCallId, '', 'failed');
       }
@@ -254,6 +254,7 @@ export class ConversationSession {
       this.update(prev =>
         prev.map(m => m.id === aiMsgId ? { ...m, streaming: false, status: 'failed' } : m)
       );
+      console.error(e);
     } finally {
       this.streaming = false;
       this.onStreaming(false);
