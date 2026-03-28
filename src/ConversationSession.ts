@@ -29,13 +29,6 @@ export type ChatMessage = {
   toolSteps?: ToolStep[];
 };
 
-type SessionEvent =
-  | { type: 'add_messages'; userMsg: ChatMessage; aiMsg: ChatMessage }
-  | { type: 'chunk'; id: number; content: string }
-  | { type: 'tool_start'; msgId: number; step: ToolStep }
-  | { type: 'tool_done'; msgId: number; stepId: number; result: string; status: 'ok' | 'failed' }
-  | { type: 'done'; id: number; status: 'ok' | 'failed' };
-
 export class ConversationSession {
   private sessionId: number | null;
   private msgs: ChatMessage[] = [];
@@ -101,58 +94,6 @@ export class ConversationSession {
     return this.sessionId;
   }
 
-  private applyEvent(event: SessionEvent) {
-    if (event.type === 'add_messages') {
-      this.update(prev => [...prev, event.userMsg, event.aiMsg]);
-    } else if (event.type === 'chunk') {
-      this.update(prev =>
-        prev.map(m => m.id === event.id ? { ...m, content: event.content } : m)
-      );
-    } else if (event.type === 'tool_start') {
-      this.update(prev =>
-        prev.map(m =>
-          m.id === event.msgId
-            ? { ...m, toolSteps: [...(m.toolSteps ?? []), event.step] }
-            : m
-        )
-      );
-    } else if (event.type === 'tool_done') {
-      this.update(prev =>
-        prev.map(m =>
-          m.id === event.msgId
-            ? {
-                ...m,
-                toolSteps: m.toolSteps?.map(s =>
-                  s.id === event.stepId
-                    ? { ...s, status: event.status, result: event.result }
-                    : s
-                ),
-              }
-            : m
-        )
-      );
-    } else if (event.type === 'done') {
-      this.update(prev =>
-        prev.map(m =>
-          m.id === event.id ? { ...m, streaming: false, status: event.status } : m
-        )
-      );
-    }
-  }
-
-  private async runStream(gen: AsyncGenerator<SessionEvent>) {
-    this.streaming = true;
-    this.onStreaming(true);
-    try {
-      for await (const event of gen) {
-        this.applyEvent(event);
-      }
-    } finally {
-      this.streaming = false;
-      this.onStreaming(false);
-    }
-  }
-
   async sendMessage(text: string): Promise<void> {
     if (!text.trim() || this.streaming) return;
     const isNew = this.sessionId === null;
@@ -163,25 +104,26 @@ export class ConversationSession {
     const userMsgId = await createMessage(sid, 'user', text, 'ok');
     const aiMsgId = await createMessage(sid, 'assistant', '', 'pending');
 
-    this.applyEvent({
-      type: 'add_messages',
-      userMsg: { role: 'user', content: text, id: userMsgId, status: 'ok' },
-      aiMsg: { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
-    });
+    this.update(prev => [
+      ...prev,
+      { role: 'user', content: text, id: userMsgId, status: 'ok' },
+      { role: 'assistant', content: '', id: aiMsgId, status: 'pending', streaming: true },
+    ]);
 
-    const aiHistory: Message[] = [
-      ...this.msgs
-        .filter(m => m.id !== aiMsgId)
-        .map(m => ({ role: m.role, content: m.content })),
-    ];
-    await this.runStream(this.streamResponse(aiMsgId, aiHistory));
+    const history: Message[] = this.msgs
+      .filter(m => m.id !== aiMsgId)
+      .map(m => ({ role: m.role, content: m.content }));
+
+    await this.streamResponse(aiMsgId, history);
   }
 
   async retryMessage(failedMsgId: number): Promise<void> {
     if (this.sessionId === null || this.streaming) return;
 
     await updateMessageStatus(failedMsgId, 'pending');
-    this.applyEvent({ type: 'chunk', id: failedMsgId, content: '' });
+    this.update(prev =>
+      prev.map(m => m.id === failedMsgId ? { ...m, content: '', status: 'pending' } : m)
+    );
 
     const dbMsgs = await getMessagesForSession(this.sessionId);
     const failedIdx = dbMsgs.findIndex(m => m.id === failedMsgId);
@@ -189,13 +131,12 @@ export class ConversationSession {
       .slice(0, failedIdx)
       .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-    await this.runStream(this.streamResponse(failedMsgId, history));
+    await this.streamResponse(failedMsgId, history);
   }
 
-  private async *streamResponse(
-    aiMsgId: number,
-    conversation: Message[]
-  ): AsyncGenerator<SessionEvent> {
+  private async streamResponse(aiMsgId: number, conversation: Message[]): Promise<void> {
+    this.streaming = true;
+    this.onStreaming(true);
     let fullContent = '';
     let pendingToolCallId: number | null = null;
     try {
@@ -203,29 +144,53 @@ export class ConversationSession {
       for await (const event of stream) {
         if (event.type === 'text') {
           fullContent += event.content;
-          yield { type: 'chunk', id: aiMsgId, content: fullContent };
+          this.update(prev =>
+            prev.map(m => m.id === aiMsgId ? { ...m, content: fullContent } : m)
+          );
         } else if (event.type === 'tool_start') {
           pendingToolCallId = await createToolCall(aiMsgId, event.name, event.args);
-          yield {
-            type: 'tool_start',
-            msgId: aiMsgId,
-            step: { id: pendingToolCallId, name: event.name, args: event.args, status: 'running' },
-          };
+          const step: ToolStep = { id: pendingToolCallId, name: event.name, args: event.args, status: 'running' };
+          this.update(prev =>
+            prev.map(m =>
+              m.id === aiMsgId
+                ? { ...m, toolSteps: [...(m.toolSteps ?? []), step] }
+                : m
+            )
+          );
         } else if (event.type === 'tool_done' && pendingToolCallId !== null) {
           await updateToolCall(pendingToolCallId, event.result, 'ok');
-          yield { type: 'tool_done', msgId: aiMsgId, stepId: pendingToolCallId, result: event.result, status: 'ok' };
+          const stepId = pendingToolCallId;
+          this.update(prev =>
+            prev.map(m =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    toolSteps: m.toolSteps?.map(s =>
+                      s.id === stepId ? { ...s, status: 'ok', result: event.result } : s
+                    ),
+                  }
+                : m
+            )
+          );
           pendingToolCallId = null;
         }
       }
       await appendMessageContent(aiMsgId, fullContent);
       await updateMessageStatus(aiMsgId, 'ok');
-      yield { type: 'done', id: aiMsgId, status: 'ok' };
+      this.update(prev =>
+        prev.map(m => m.id === aiMsgId ? { ...m, streaming: false, status: 'ok' } : m)
+      );
     } catch {
       if (pendingToolCallId !== null) {
         await updateToolCall(pendingToolCallId, '', 'failed');
       }
       await updateMessageStatus(aiMsgId, 'failed');
-      yield { type: 'done', id: aiMsgId, status: 'failed' };
+      this.update(prev =>
+        prev.map(m => m.id === aiMsgId ? { ...m, streaming: false, status: 'failed' } : m)
+      );
+    } finally {
+      this.streaming = false;
+      this.onStreaming(false);
     }
   }
 }
