@@ -20,3 +20,4 @@
 - Live conversational mode with agent speaking back ✓
 - Siri/voice shortcut integration
 - Offline/poor-network fallback
+- Customers list in top right corner. Allows searching customers, their conversations and notes
