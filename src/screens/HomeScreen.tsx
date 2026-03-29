@@ -100,16 +100,25 @@ export default function HomeScreen() {
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Cosailor</Text>
+          <TouchableOpacity onPress={newConversation} style={styles.newButton}>
+            <Text style={styles.newButtonIcon}>＋</Text>
+          </TouchableOpacity>
         </View>
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={scrollToEnd}
-          onLayout={scrollToEnd}
-        />
+        {messages.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>Welcome back!</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(_, i) => String(i)}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messageList}
+            onContentSizeChange={scrollToEnd}
+            onLayout={scrollToEnd}
+          />
+        )}
         <InputBar
           onSend={text => session.sendMessage(text)}
           isStreaming={isStreaming}
@@ -120,7 +129,6 @@ export default function HomeScreen() {
         visible={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onSelectSession={(s) => { setSidebarOpen(false); loadSession(s); }}
-        onNewConversation={() => { setSidebarOpen(false); newConversation(); }}
       />
     </SafeAreaView>
   );
@@ -152,6 +160,24 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.5,
     marginLeft: spacing.sm,
+    flex: 1,
+  },
+  newButton: {
+    padding: spacing.sm,
+  },
+  newButtonIcon: {
+    color: '#e5e1e4',
+    fontSize: 22,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: '#e5e1e4',
+    fontSize: 28,
+    fontWeight: '700',
   },
   messageList: {
     paddingHorizontal: spacing.md,
