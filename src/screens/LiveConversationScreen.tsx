@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,26 +14,13 @@ import type { RootStackParamList } from '../navigation/types';
 import { useLiveConversation } from '../hooks/useLiveConversation';
 import Waveform from '../components/Waveform';
 import { type ChatMessage } from '../ConversationSession';
-import Markdown from 'react-native-markdown-display';
+import MessageBubble from '../components/MessageBubble';
 import { spacing, typography } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LiveConversation'>;
 
 // How many pixels to leave below the spoken boundary so pending text peeks in
 const SCROLL_PADDING = 60;
-
-const liveMarkdownStyles = {
-  body: { color: '#e4e4e7', fontSize: typography.base.fontSize, lineHeight: typography.base.lineHeight },
-  strong: { fontWeight: '700' as const },
-  em: { fontStyle: 'italic' as const },
-  bullet_list: { marginVertical: 2 },
-  ordered_list: { marginVertical: 2 },
-  list_item: { color: '#e4e4e7' },
-  code_inline: { backgroundColor: '#18181b', color: '#a78bfa', fontFamily: 'Courier', fontSize: 13 },
-  fence: { backgroundColor: '#18181b', color: '#a78bfa', fontFamily: 'Courier', fontSize: 13, borderRadius: 6, padding: 8 },
-  link: { color: '#818cf8' },
-  paragraph: { marginVertical: 2 },
-};
 
 export default function LiveConversationScreen({ route, navigation }: Props) {
   const { session } = route.params;
@@ -53,11 +40,17 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
   const exchangeScrollRef = useRef<ScrollView>(null);
   const spokenViewRef = useRef<View>(null);
   const isEndingRef = useRef(false);
+  const [cursorVisible, setCursorVisible] = useState(true);
 
   // Start listening as soon as the screen mounts
   useEffect(() => {
     start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const id = setInterval(() => setCursorVisible(v => !v), 500);
+    return () => clearInterval(id);
+  }, []);
 
   // Block back gesture while conversation is active (but not when user taps End)
   useEffect(() => {
@@ -87,13 +80,11 @@ export default function LiveConversationScreen({ route, navigation }: Props) {
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => (
-    <View style={item.role === 'user' ? styles.userBubble : styles.aiBubble}>
-      {item.role === 'user' ? (
-        <Text style={styles.userText}>{item.content}</Text>
-      ) : (
-        <Markdown style={liveMarkdownStyles}>{item.content}</Markdown>
-      )}
-    </View>
+    <MessageBubble
+      message={item}
+      cursorVisible={cursorVisible}
+      onRetry={() => {}}
+    />
   );
 
   const waveformLabel =
@@ -177,32 +168,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
-  },
-  userBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
-    maxWidth: '80%',
-  },
-  aiBubble: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#27272a',
-    borderRadius: 14,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
-    maxWidth: '80%',
-  },
-  userText: {
-    color: '#ffffff',
-    ...typography.base,
-  },
-  aiText: {
-    color: '#e4e4e7',
-    ...typography.base,
   },
   currentExchangeScroll: {
     maxHeight: 160,
