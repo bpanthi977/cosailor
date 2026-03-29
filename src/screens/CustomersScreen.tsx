@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -16,7 +17,7 @@ import type { Customer } from '../db';
 import { colors, radius, spacing, typography } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'Customers'>;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CustomersScreen() {
   const navigation = useNavigation<Nav>();
@@ -38,9 +39,6 @@ export default function CustomersScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>Customers</Text>
       </View>
 
@@ -82,13 +80,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
-  },
-  backButton: {
-    padding: spacing.sm,
-  },
-  backIcon: {
-    color: '#fafafa',
-    fontSize: 20,
   },
   title: {
     ...typography.lg,

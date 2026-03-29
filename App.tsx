@@ -2,18 +2,34 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { App } from './src/app';
-import type { RootStackParamList } from './src/navigation/types';
+import type { RootStackParamList, TabParamList } from './src/navigation/types';
 
 import HomeScreen from './src/screens/HomeScreen';
 import LiveConversationScreen from './src/screens/LiveConversationScreen';
 import CustomersScreen from './src/screens/CustomersScreen';
 import SkillsScreen from './src/screens/SkillsScreen';
 import CustomerDetailScreen from './src/screens/CustomerDetailScreen';
+import BottomTabBar from './src/components/BottomTabBar';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{ headerShown: false }}
+      tabBar={props => <BottomTabBar {...props} />}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Customers" component={CustomersScreen} />
+      <Tab.Screen name="Skills" component={SkillsScreen} />
+    </Tab.Navigator>
+  );
+}
 
 export default function AppView() {
   const [appReady, setAppReady] = useState(false);
@@ -42,9 +58,7 @@ export default function AppView() {
       <StatusBar style="light" />
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Customers" component={CustomersScreen} />
-          <Stack.Screen name="Skills" component={SkillsScreen} />
+          <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} />
           <Stack.Screen
             name="LiveConversation"

@@ -20,7 +20,9 @@ import MessageBubble from '../components/MessageBubble';
 import SessionSidebar from '../components/SessionSidebar';
 import useCursorBlink from '../hooks/useCursorBlink';
 import { spacing } from '../theme';
-import type { RootStackParamList } from '../navigation/types';
+import type { RootStackParamList, TabParamList } from '../navigation/types';
+
+type HomeRoute = RouteProp<TabParamList, 'Home'>;
 
 function useChatController() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -62,7 +64,7 @@ export default function HomeScreen() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const listRef = useRef<FlatList>(null);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const route = useRoute<RouteProp<RootStackParamList, 'Home'>>();
+  const route = useRoute<HomeRoute>();
   const { customerId, customerName, sessionId } = route.params ?? {};
 
   useEffect(() => {
@@ -98,12 +100,6 @@ export default function HomeScreen() {
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
           <View style={styles.topBarSpacer} />
-          <TouchableOpacity onPress={() => navigation.navigate('Customers')} style={styles.menuButton}>
-            <Text style={styles.menuIcon}>👤</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Skills')} style={styles.menuButton}>
-            <Text style={styles.menuIcon}>⚙</Text>
-          </TouchableOpacity>
         </View>
         <FlatList
           ref={listRef}

@@ -12,7 +12,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 
 import { listSkills, createSkill, updateSkill, deleteSkill, type DbSkill } from '../db';
 import { colors, radius, spacing, typography } from '../theme';
@@ -20,7 +19,6 @@ import { colors, radius, spacing, typography } from '../theme';
 type EditState = { mode: 'add' } | { mode: 'edit'; skill: DbSkill };
 
 export default function SkillsScreen() {
-  const navigation = useNavigation();
   const [skills, setSkills] = useState<DbSkill[]>([]);
   const [editState, setEditState] = useState<EditState | null>(null);
 
@@ -151,9 +149,6 @@ export default function SkillsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>Skills</Text>
         <TouchableOpacity onPress={openAdd} style={styles.addButton}>
           <Text style={styles.addText}>+</Text>

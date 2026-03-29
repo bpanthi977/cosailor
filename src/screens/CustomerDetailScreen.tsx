@@ -58,15 +58,15 @@ export default function CustomerDetailScreen() {
   }, []);
 
   const handleSelectNote = useCallback((note: Note) => {
-    navigation.navigate('Home', { customerId, customerName, sessionId: note.session_id });
+    navigation.navigate('MainTabs', { screen: 'Home', params: { customerId, customerName, sessionId: note.session_id } });
   }, [navigation, customerId, customerName]);
 
   const handleSelectSession = useCallback((session: Session) => {
-    navigation.navigate('Home', { customerId, customerName, sessionId: session.id });
+    navigation.navigate('MainTabs', { screen: 'Home', params: { customerId, customerName, sessionId: session.id } });
   }, [navigation, customerId, customerName]);
 
   const handleStartChat = useCallback(() => {
-    navigation.navigate('Home', { customerId, customerName });
+    navigation.navigate('MainTabs', { screen: 'Home', params: { customerId, customerName } });
   }, [navigation, customerId, customerName]);
 
   return (
