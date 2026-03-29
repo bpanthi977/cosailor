@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -17,38 +17,28 @@ import { radius, spacing, typography } from '../theme';
 const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.8;
 
 type Props = {
-  visible: boolean;
+  mounted: boolean;
+  slideAnim: Animated.Value;
   onClose: () => void;
   onSelectSession: (session: SessionListItem) => void;
 };
 
 export default function SessionSidebar({
-  visible,
+  mounted,
+  slideAnim,
   onClose,
   onSelectSession,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-  const [mounted, setMounted] = useState(visible);
   const [search, setSearch] = useState('');
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
 
   useEffect(() => {
-    if (visible) {
-      setMounted(true);
+    if (mounted) {
       getSessions().then(setSessions);
+      setSearch('');
     }
-    Animated.timing(slideAnim, {
-      toValue: visible ? 0 : -SIDEBAR_WIDTH,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished && !visible) {
-        setMounted(false);
-        setSearch('');
-      }
-    });
-  }, [visible, slideAnim]);
+  }, [mounted]);
 
   const filtered = sessions.filter(s =>
     (s.title || '').toLowerCase().includes(search.toLowerCase())

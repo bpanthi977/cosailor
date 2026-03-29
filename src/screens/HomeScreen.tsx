@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Dimensions,
   FlatList,
   KeyboardAvoidingView,
   PanResponder,
@@ -9,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.8;
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
@@ -62,15 +66,42 @@ function useChatController() {
 export default function HomeScreen() {
   const { messages, isStreaming, sessionRef, session, loadSession, newConversation, newConversationForCustomer } = useChatController();
   const cursorVisible = useCursorBlink(isStreaming);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarMounted, setSidebarMounted] = useState(false);
   const sidebarOpenRef = useRef(false);
-  useEffect(() => { sidebarOpenRef.current = sidebarOpen; }, [sidebarOpen]);
+  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+
+  const openSidebar = useCallback(() => {
+    setSidebarMounted(true);
+    sidebarOpenRef.current = true;
+    Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
+  }, [slideAnim]);
+
+  const closeSidebar = useCallback(() => {
+    sidebarOpenRef.current = false;
+    Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 250, useNativeDriver: true }).start(
+      ({ finished }) => { if (finished) setSidebarMounted(false); }
+    );
+  }, [slideAnim]);
+
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) =>
         !sidebarOpenRef.current && g.dx > 10 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderGrant: () => {
+        setSidebarMounted(true);
+      },
+      onPanResponderMove: (_, g) => {
+        slideAnim.setValue(Math.min(0, -SIDEBAR_WIDTH + Math.max(0, g.dx)));
+      },
       onPanResponderRelease: (_, g) => {
-        if (g.dx > 50) setSidebarOpen(true);
+        if (g.dx > SIDEBAR_WIDTH * 0.3) {
+          sidebarOpenRef.current = true;
+          Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+        } else {
+          Animated.timing(slideAnim, { toValue: -SIDEBAR_WIDTH, duration: 200, useNativeDriver: true }).start(
+            ({ finished }) => { if (finished) setSidebarMounted(false); }
+          );
+        }
       },
     })
   ).current;
@@ -108,7 +139,7 @@ export default function HomeScreen() {
         keyboardVerticalOffset={0}
       >
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => setSidebarOpen(true)} style={styles.menuButton}>
+          <TouchableOpacity onPress={openSidebar} style={styles.menuButton}>
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Cosailor</Text>
@@ -138,9 +169,10 @@ export default function HomeScreen() {
         />
       </KeyboardAvoidingView>
       <SessionSidebar
-        visible={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onSelectSession={(s) => { setSidebarOpen(false); loadSession(s); }}
+        mounted={sidebarMounted}
+        slideAnim={slideAnim}
+        onClose={closeSidebar}
+        onSelectSession={(s) => { closeSidebar(); loadSession(s); }}
       />
     </SafeAreaView>
   );
