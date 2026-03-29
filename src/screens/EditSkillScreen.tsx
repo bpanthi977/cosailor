@@ -19,35 +19,40 @@ import { radius, spacing, typography } from '../theme';
 export type EditSkillState = { mode: 'add' } | { mode: 'edit'; skill: DbSkill };
 
 interface Props {
-  editState: EditSkillState;
+  editState: EditSkillState | null;
   onBack: () => void;
   onSaved: () => void;
 }
 
 export default function EditSkillScreen({ editState, onBack, onSaved }: Props) {
-  const [name, setName] = useState(
-    editState.mode === 'edit' ? editState.skill.name : ''
-  );
-  const [summary, setSummary] = useState(
-    editState.mode === 'edit' ? editState.skill.summary : ''
-  );
-  const [instructions, setInstructions] = useState(
-    editState.mode === 'edit' ? editState.skill.instructions : ''
-  );
+  const [name, setName] = useState('');
+  const [summary, setSummary] = useState('');
+  const [instructions, setInstructions] = useState('');
 
+  // Sync form fields whenever a new editState is opened
   useEffect(() => {
+    if (editState === null) return;
+    setName(editState.mode === 'edit' ? editState.skill.name : '');
+    setSummary(editState.mode === 'edit' ? editState.skill.summary : '');
+    setInstructions(editState.mode === 'edit' ? editState.skill.instructions : '');
+  }, [editState]);
+
+  // Only intercept back when this view is visible
+  useEffect(() => {
+    if (editState === null) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       onBack();
       return true;
     });
     return () => sub.remove();
-  }, [onBack]);
+  }, [editState, onBack]);
 
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Name required', 'Please enter a skill name.');
       return;
     }
+    if (editState === null) return;
     if (editState.mode === 'add') {
       await createSkill(name.trim(), summary.trim(), instructions.trim());
     } else {
@@ -57,7 +62,7 @@ export default function EditSkillScreen({ editState, onBack, onSaved }: Props) {
   };
 
   const handleDelete = () => {
-    if (editState.mode !== 'edit') return;
+    if (editState?.mode !== 'edit') return;
     const { id, name: skillName } = editState.skill;
     Alert.alert(
       'Delete skill',
@@ -76,6 +81,8 @@ export default function EditSkillScreen({ editState, onBack, onSaved }: Props) {
     );
   };
 
+  const isEdit = editState?.mode === 'edit';
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -87,9 +94,9 @@ export default function EditSkillScreen({ editState, onBack, onSaved }: Props) {
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
           <Text style={styles.title}>
-            {editState.mode === 'add' ? 'New Skill' : 'Edit Skill'}
+            {isEdit ? 'Edit Skill' : 'New Skill'}
           </Text>
-          {editState.mode === 'edit' && (
+          {isEdit && (
             <TouchableOpacity onPress={handleDelete} style={styles.deleteHeaderButton}>
               <Text style={styles.deleteHeaderText}>Delete</Text>
             </TouchableOpacity>
@@ -132,7 +139,7 @@ export default function EditSkillScreen({ editState, onBack, onSaved }: Props) {
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveText}>
-              {editState.mode === 'add' ? 'Create Skill' : 'Save Changes'}
+              {isEdit ? 'Save Changes' : 'Create Skill'}
             </Text>
           </TouchableOpacity>
         </ScrollView>

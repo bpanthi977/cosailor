@@ -24,58 +24,78 @@ export default function SkillsScreen() {
     reload();
   }, [reload]);
 
-  if (editState !== null) {
-    return (
-      <EditSkillScreen
-        editState={editState}
-        onBack={() => setEditState(null)}
-        onSaved={() => { reload(); setEditState(null); }}
-      />
-    );
-  }
+  const handleSaved = useCallback(() => {
+    reload();
+    setEditState(null);
+  }, [reload]);
+
+  const handleBack = useCallback(() => {
+    setEditState(null);
+  }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.topBar}>
-        <Text style={styles.title}>Skills</Text>
-        <TouchableOpacity onPress={() => setEditState({ mode: 'add' })} style={styles.addButton}>
-          <Text style={styles.addText}>+</Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={skills}
-        keyExtractor={item => String(item.id)}
-        ListHeaderComponent={
-          <View style={styles.heroSection}>
-            <Text style={styles.heroHeading}>Precision Co-Pilot Skills</Text>
-            <Text style={styles.heroDescription}>
-              Refine how your AI assistant processes interactions. These pre-configured skills ensure consistent output quality.
-            </Text>
-          </View>
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No skills yet. Tap + to add one.</Text>
-        }
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.skillCard} onPress={() => setEditState({ mode: 'edit', skill: item })}>
-            <View style={styles.skillCardContent}>
-              <Text style={styles.skillName}>{item.name}</Text>
-              <Text style={styles.skillSummary} numberOfLines={2}>{item.summary}</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
+    <View style={styles.root}>
+      {/* List view — hidden when editing */}
+      <SafeAreaView style={[styles.fill, editState !== null && styles.hidden]}>
+        <View style={styles.topBar}>
+          <Text style={styles.title}>Skills</Text>
+          <TouchableOpacity onPress={() => setEditState({ mode: 'add' })} style={styles.addButton}>
+            <Text style={styles.addText}>+</Text>
           </TouchableOpacity>
-        )}
-      />
-    </SafeAreaView>
+        </View>
+
+        <FlatList
+          data={skills}
+          keyExtractor={item => String(item.id)}
+          ListHeaderComponent={
+            <View style={styles.heroSection}>
+              <Text style={styles.heroHeading}>Precision Co-Pilot Skills</Text>
+              <Text style={styles.heroDescription}>
+                Refine how your AI assistant processes interactions. These pre-configured skills ensure consistent output quality.
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No skills yet. Tap + to add one.</Text>
+          }
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.skillCard}
+              onPress={() => setEditState({ mode: 'edit', skill: item })}
+            >
+              <View style={styles.skillCardContent}>
+                <Text style={styles.skillName}>{item.name}</Text>
+                <Text style={styles.skillSummary} numberOfLines={2}>{item.summary}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          )}
+        />
+      </SafeAreaView>
+
+      {/* Edit view — hidden when not editing */}
+      <View style={[styles.fill, editState === null && styles.hidden]}>
+        <EditSkillScreen
+          editState={editState}
+          onBack={handleBack}
+          onSaved={handleSaved}
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: '#131315',
+  },
+  fill: {
+    flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
   topBar: {
     flexDirection: 'row',
