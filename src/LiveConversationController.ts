@@ -2,7 +2,7 @@ import { VoiceInput } from './VoiceInput';
 import { TtsOutput } from './TtsOutput';
 import { ConversationSession } from './ConversationSession';
 
-const SILENCE_TIMEOUT_MS = 1500;
+const SILENCE_TIMEOUT_MS = 4000;
 
 export type LiveState =
   | { phase: 'idle' }
