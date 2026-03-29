@@ -1,4 +1,5 @@
 import { getDb } from './schema';
+import { SessionListItem } from './sessions';
 import type { Customer, Note, Session } from './types';
 
 export async function upsertCustomer(name: string): Promise<number> {
@@ -47,12 +48,16 @@ export async function fetchNotes(
   return { customer, notes };
 }
 
-export async function getSessionsForCustomer(customerId: number): Promise<Session[]> {
+export async function getSessionsForCustomer(customerId: number): Promise<SessionListItem[]> {
   const db = getDb();
-  return db.getAllAsync<Session>(
-    `SELECT s.* FROM sessions s
+  return db.getAllAsync<SessionListItem>(
+    `SELECT s.*,
+       CASE WHEN COUNT(n.id) > 0 THEN 1 ELSE 0 END as has_notes
+     FROM sessions s
+     LEFT JOIN notes n ON n.session_id = s.id
      JOIN session_customers sc ON sc.session_id = s.id
      WHERE sc.customer_id = ?
+     GROUP BY s.id
      ORDER BY s.updated_at DESC`,
     customerId
   );

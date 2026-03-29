@@ -15,6 +15,7 @@ import { fetchNotes, getSessionsForCustomer, deleteNote, deleteSession } from '.
 import type { Note, Session } from '../db';
 import { colors, radius, spacing, typography } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
+import { SessionListItem } from '@/Sessions';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'CustomerDetail'>;
 type Route = RouteProp<RootStackParamList, 'CustomerDetail'>;
@@ -30,7 +31,7 @@ export default function CustomerDetailScreen() {
   const { customerId, customerName } = route.params;
 
   const [notes, setNotes] = useState<Note[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<SessionListItem[]>([]);
 
   const loadData = useCallback(async () => {
     const [notesResult, sessionsResult] = await Promise.all([
@@ -108,9 +109,12 @@ export default function CustomerDetailScreen() {
                 style={styles.sessionInfo}
                 onPress={() => handleSelectSession(session)}
               >
-                <Text style={styles.sessionTitle} numberOfLines={1}>
-                  {session.title || 'Untitled'}
-                </Text>
+		<View style={styles.sessionRowHeader}>
+		  <Text style={styles.sessionTitle} numberOfLines={1}>
+                    {session.title || 'Untitled'}
+                  </Text>
+                  {!!session.has_notes && <Text style={styles.notesIndicator}>📝</Text>}
+		</View>
                 <Text style={styles.sessionDate}>{formatDate(session.updated_at)}</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -209,6 +213,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
+  },
+  sessionRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notesIndicator: {
+    fontSize: 12,
+    marginLeft: spacing.xs,
   },
   sessionInfo: {
     flex: 1,
