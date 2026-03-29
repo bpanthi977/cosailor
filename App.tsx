@@ -21,7 +21,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, tabBarStyle: { borderTopWidth: 0 } }}
       tabBar={props => <BottomTabBar {...props} />}
     >
       <Tab.Screen name="Home" component={HomeScreen} />

@@ -61,8 +61,6 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     backgroundColor: 'rgba(19, 19, 21, 0.92)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(67, 70, 85, 0.25)',
     paddingTop: 8,
     paddingHorizontal: 16,
     ...Platform.select({
@@ -72,7 +70,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8,
       },
-      android: { elevation: 8 },
     }),
   },
   tab: {
