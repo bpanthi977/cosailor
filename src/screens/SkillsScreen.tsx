@@ -49,9 +49,9 @@ export default function SkillsScreen() {
           keyExtractor={item => String(item.id)}
           ListHeaderComponent={
             <View style={styles.heroSection}>
-              <Text style={styles.heroHeading}>Precision Co-Pilot Skills</Text>
+              <Text style={styles.heroHeading}>Customize Interactions</Text>
               <Text style={styles.heroDescription}>
-                Refine how your AI assistant processes interactions. These pre-configured skills ensure consistent output quality.
+                Refine how you AI processes instructions. Define templates for consistent output to typical tasks.
               </Text>
             </View>
           }

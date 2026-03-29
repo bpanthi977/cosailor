@@ -148,6 +148,7 @@ const styles = StyleSheet.create({
   searchInput: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: 'rgba(42, 42, 44, 0.75)',
