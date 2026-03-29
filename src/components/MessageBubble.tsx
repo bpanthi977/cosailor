@@ -227,7 +227,7 @@ function NotesList({ notes, navigation }: { notes: FetchedNote[]; navigation: an
     <View style={styles.notesList}>
       {notes.map((note, i) => (
         <View key={i} style={styles.noteItem}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.push('Home', { sessionId: note.session_id })}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => navigation.navigate('Home', { sessionId: note.session_id })}>
             <Text style={styles.noteText} numberOfLines={expandedNotes[i] ? undefined : 2}>
               {note.text}
             </Text>
