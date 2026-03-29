@@ -10,8 +10,9 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSessions, type SessionListItem } from '../Sessions';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, typography } from '../theme';
 
 const SIDEBAR_WIDTH = Dimensions.get('window').width * 0.8;
 
@@ -19,15 +20,14 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSelectSession: (session: SessionListItem) => void;
-  onNewConversation: () => void;
 };
 
 export default function SessionSidebar({
   visible,
   onClose,
   onSelectSession,
-  onNewConversation,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   const [mounted, setMounted] = useState(visible);
   const [search, setSearch] = useState('');
@@ -68,23 +68,19 @@ export default function SessionSidebar({
       </TouchableWithoutFeedback>
 
       <Animated.View style={[styles.panel, { transform: [{ translateX: slideAnim }] }]}>
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Text style={styles.headerTitle}>Conversations</Text>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.newButton} onPress={onNewConversation}>
-          <Text style={styles.newButtonText}>+ New Conversation</Text>
-        </TouchableOpacity>
-
         <TextInput
           style={styles.searchInput}
           value={search}
           onChangeText={setSearch}
           placeholder="Search..."
-          placeholderTextColor={colors.mutedForeground}
+          placeholderTextColor="rgba(195, 198, 215, 0.4)"
         />
 
         <FlatList
@@ -123,7 +119,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: SIDEBAR_WIDTH,
-    backgroundColor: '#09090b',
+    backgroundColor: '#131315',
     borderRightWidth: 1,
     borderRightColor: '#27272a',
   },
@@ -132,44 +128,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: '#27272a',
   },
   headerTitle: {
     ...typography.lg,
-    color: '#fafafa',
-    fontWeight: '600',
+    color: '#adc6ff',
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   closeButton: {
     padding: spacing.xs,
   },
   closeText: {
-    color: colors.mutedForeground,
+    color: '#e5e1e4',
     fontSize: 16,
-  },
-  newButton: {
-    margin: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  newButtonText: {
-    color: colors.primaryForeground,
-    fontWeight: '600',
-    ...typography.base,
   },
   searchInput: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: '#18181b',
+    backgroundColor: 'rgba(42, 42, 44, 0.75)',
     borderRadius: radius.md,
-    color: '#fafafa',
+    borderWidth: 1,
+    borderColor: 'rgba(67, 70, 85, 0.25)',
+    color: '#e5e1e4',
     ...typography.base,
   },
   sessionRow: {
@@ -183,7 +168,7 @@ const styles = StyleSheet.create({
   },
   sessionTitle: {
     ...typography.base,
-    color: '#fafafa',
+    color: '#e5e1e4',
     flex: 1,
   },
   notesIndicator: {
@@ -192,7 +177,7 @@ const styles = StyleSheet.create({
   },
   sessionDate: {
     ...typography.sm,
-    color: colors.mutedForeground,
+    color: 'rgba(195, 198, 215, 0.7)',
     marginTop: 2,
   },
   separator: {
