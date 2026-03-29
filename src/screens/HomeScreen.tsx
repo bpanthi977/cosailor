@@ -99,7 +99,7 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={() => setSidebarOpen(true)} style={styles.menuButton}>
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
-          <View style={styles.topBarSpacer} />
+          <Text style={styles.title}>Cosailor</Text>
         </View>
         <FlatList
           ref={listRef}
@@ -130,23 +130,28 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: {
     flex: 1,
-    backgroundColor: '#09090b',
+    backgroundColor: '#131315',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    backgroundColor: 'rgba(19, 19, 21, 0.8)',
   },
-  topBarSpacer: { flex: 1 },
   menuButton: {
     padding: spacing.sm,
   },
   menuIcon: {
-    color: '#fafafa',
+    color: '#e5e1e4',
     fontSize: 20,
+  },
+  title: {
+    color: '#adc6ff',
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginLeft: spacing.sm,
   },
   messageList: {
     paddingHorizontal: spacing.md,

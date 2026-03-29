@@ -2,14 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Platform,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { VoiceInput } from '../VoiceInput';
-import { colors, radius, spacing, typography } from '../theme';
+import { spacing } from '../theme';
 
 type Props = {
   onSend: (text: string) => void;
@@ -86,43 +87,47 @@ export default function InputBar({ onSend, isStreaming, onLive }: Props) {
     }
   };
 
-  const sendDisabled = !inputText.trim() || isStreaming;
-  const showLive = !inputText.trim() && !isRecording && voiceAvailable && !!onLive;
+  const hasText = !!inputText.trim();
+  const showLive = !hasText && !isRecording && voiceAvailable && !!onLive;
 
   return (
-    <View style={styles.inputBar}>
+    <View style={styles.container}>
+      {voiceAvailable && (
+        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+          <TouchableOpacity
+            style={[styles.iconButton, isRecording && styles.micButtonActive]}
+            onPress={handleMicToggle}
+            disabled={isStreaming}
+          >
+            <Ionicons
+              name={isRecording ? 'stop' : 'mic'}
+              size={22}
+              color={isRecording ? '#f87171' : 'rgba(195, 198, 215, 0.7)'}
+            />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
       <TextInput
         style={styles.input}
         value={inputText}
         onChangeText={handleChangeText}
-        placeholder="Message..."
-        placeholderTextColor={colors.mutedForeground}
+        placeholder="Ask co-pilot or pick a skill..."
+        placeholderTextColor="rgba(195, 198, 215, 0.4)"
         multiline
         onSubmitEditing={handleSend}
         submitBehavior="newline"
       />
-      {voiceAvailable && (
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <TouchableOpacity
-            style={[styles.micButton, isRecording && styles.micButtonActive]}
-            onPress={handleMicToggle}
-            disabled={isStreaming}
-          >
-            <Text style={styles.micIcon}>{isRecording ? '⏹' : '🎤'}</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
       {showLive ? (
-        <TouchableOpacity style={styles.liveButton} onPress={onLive} disabled={isStreaming}>
-          <Text style={styles.liveButtonText}>◎</Text>
+        <TouchableOpacity style={styles.actionButton} onPress={onLive} disabled={isStreaming}>
+          <Ionicons name="radio" size={22} color="#002e6a" />
         </TouchableOpacity>
       ) : (
         <TouchableOpacity
-          style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
+          style={[styles.actionButton, (!hasText || isStreaming) && styles.actionButtonDisabled]}
           onPress={handleSend}
-          disabled={sendDisabled}
+          disabled={!hasText || isStreaming}
         >
-          <Text style={styles.sendButtonText}>Send</Text>
+          <Ionicons name="arrow-up" size={22} color="#002e6a" />
         </TouchableOpacity>
       )}
     </View>
@@ -130,66 +135,58 @@ export default function InputBar({ onSend, isStreaming, onLive }: Props) {
 }
 
 const styles = StyleSheet.create({
-  inputBar: {
+  container: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: '#27272a',
-    gap: spacing.sm,
+    alignItems: 'center',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
+    backgroundColor: 'rgba(42, 42, 44, 0.75)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(67, 70, 85, 0.25)',
+    gap: spacing.xs,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
   },
   input: {
     flex: 1,
     minHeight: 40,
     maxHeight: 120,
-    backgroundColor: '#18181b',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: '#fafafa',
-    ...typography.base,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    color: '#e5e1e4',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  micButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: '#18181b',
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   micButtonActive: {
-    backgroundColor: '#3f1f1f',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
-  micIcon: {
-    fontSize: 18,
-  },
-  sendButton: {
-    height: 40,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
+  actionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#adc6ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendButtonDisabled: {
-    opacity: 0.4,
-  },
-  sendButtonText: {
-    color: colors.primaryForeground,
-    fontWeight: '600',
-    ...typography.base,
-  },
-  liveButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#18181b',
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  liveButtonText: {
-    color: '#22d3ee',
-    fontSize: 22,
+  actionButtonDisabled: {
+    opacity: 0.45,
   },
 });

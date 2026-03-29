@@ -14,7 +14,7 @@ type Props = {
 
 const markdownStyles = {
   body: {
-    color: '#fafafa',
+    color: '#e5e1e4',
     fontSize: typography.base.fontSize,
     lineHeight: typography.base.lineHeight,
   },
@@ -321,24 +321,24 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   bubble: {
-    maxWidth: '75%',
+    maxWidth: '92%',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: 12,
   },
   bubbleUser: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: radius.sm,
+    backgroundColor: '#0f69dc',
+    borderTopRightRadius: 2,
   },
   bubbleAI: {
-    backgroundColor: '#1c1c1e',
-    borderBottomLeftRadius: radius.sm,
+    backgroundColor: '#201f22',
+    borderTopLeftRadius: 2,
   },
   bubbleText: {
     ...typography.base,
   },
   bubbleTextUser: {
-    color: colors.primaryForeground,
+    color: '#ecf0ff',
   },
   stepsContainer: {
     marginTop: spacing.xs,
