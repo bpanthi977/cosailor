@@ -45,9 +45,9 @@
       <true/>
     </dict>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Microphone access is needed to record voice messages.</string>
+    <string>Allow $(PRODUCT_NAME) to use the microphone.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Speech recognition is used to transcribe your voice messages.</string>
+    <string>Allow $(PRODUCT_NAME) to use speech recognition.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
