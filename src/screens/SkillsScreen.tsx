@@ -137,6 +137,8 @@ export default function SkillsScreen() {
               textAlignVertical="top"
             />
 
+            <View style={styles.spacer} />
+
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
               <Text style={styles.saveText}>
                 {editState.mode === 'add' ? 'Create Skill' : 'Save Changes'}
@@ -286,6 +288,10 @@ const styles = StyleSheet.create({
   formContent: {
     padding: spacing.md,
     paddingBottom: spacing.xl,
+    flexGrow: 1,
+  },
+  spacer: {
+    flex: 1,
   },
   label: {
     fontSize: 12,
