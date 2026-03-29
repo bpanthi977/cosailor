@@ -8,6 +8,8 @@ export function getDb(): SQLite.SQLiteDatabase {
 }
 
 export async function initDb(): Promise<void> {
+  if (db) return;
+
   db = await SQLite.openDatabaseAsync('cosailor.db');
 
   await db.execAsync(`
