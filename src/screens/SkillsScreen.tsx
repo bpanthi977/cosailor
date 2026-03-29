@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { listSkills, createSkill, updateSkill, deleteSkill, type DbSkill } from '../db';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, typography } from '../theme';
 
 type EditState = { mode: 'add' } | { mode: 'edit'; skill: DbSkill };
 
@@ -98,48 +98,50 @@ export default function SkillsScreen() {
             <Text style={styles.title}>
               {editState.mode === 'add' ? 'New Skill' : 'Edit Skill'}
             </Text>
-            <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
-              <Text style={styles.saveText}>Save</Text>
-            </TouchableOpacity>
+            {editState.mode === 'edit' && (
+              <TouchableOpacity onPress={handleDelete} style={styles.deleteHeaderButton}>
+                <Text style={styles.deleteHeaderText}>Delete</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <ScrollView style={styles.flex} contentContainerStyle={styles.formContent}>
-            <Text style={styles.label}>Name</Text>
+            <Text style={styles.label}>NAME</Text>
             <TextInput
               style={styles.input}
               value={name}
               onChangeText={setName}
               placeholder="e.g. Meeting Notes"
-              placeholderTextColor={colors.mutedForeground}
+              placeholderTextColor="#c3c6d7"
             />
 
-            <Text style={styles.label}>Summary</Text>
+            <Text style={styles.label}>SUMMARY</Text>
             <TextInput
               style={styles.input}
               value={summary}
               onChangeText={setSummary}
-              placeholder="Brief description shown to AI in every conversation"
-              placeholderTextColor={colors.mutedForeground}
+              placeholder="What does this skill do?"
+              placeholderTextColor="#c3c6d7"
               multiline
-              numberOfLines={2}
+              numberOfLines={3}
             />
 
-            <Text style={styles.label}>Instructions</Text>
+            <Text style={styles.label}>INSTRUCTIONS</Text>
             <TextInput
               style={[styles.input, styles.instructionsInput]}
               value={instructions}
               onChangeText={setInstructions}
-              placeholder="Full instructions the AI receives when it calls read_skill"
-              placeholderTextColor={colors.mutedForeground}
+              placeholder="Be specific about how the AI should behave..."
+              placeholderTextColor="#c3c6d7"
               multiline
               textAlignVertical="top"
             />
 
-            {editState.mode === 'edit' && (
-              <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
-                <Text style={styles.deleteText}>Delete Skill</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+              <Text style={styles.saveText}>
+                {editState.mode === 'add' ? 'Create Skill' : 'Save Changes'}
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -158,13 +160,21 @@ export default function SkillsScreen() {
       <FlatList
         data={skills}
         keyExtractor={item => String(item.id)}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListHeaderComponent={
+          <View style={styles.heroSection}>
+            <Text style={styles.heroHeading}>Precision Co-Pilot Skills</Text>
+            <Text style={styles.heroDescription}>
+              Refine how your AI assistant processes interactions. These pre-configured skills ensure consistent output quality.
+            </Text>
+          </View>
+        }
         ListEmptyComponent={
           <Text style={styles.emptyText}>No skills yet. Tap + to add one.</Text>
         }
+        contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.skillRow} onPress={() => openEdit(item)}>
-            <View style={styles.skillRowContent}>
+          <TouchableOpacity style={styles.skillCard} onPress={() => openEdit(item)}>
+            <View style={styles.skillCardContent}>
               <Text style={styles.skillName}>{item.name}</Text>
               <Text style={styles.skillSummary} numberOfLines={2}>{item.summary}</Text>
             </View>
@@ -180,7 +190,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: {
     flex: 1,
-    backgroundColor: '#09090b',
+    backgroundColor: '#131315',
   },
   topBar: {
     flexDirection: 'row',
@@ -188,19 +198,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: '#27272a',
+    borderBottomColor: 'rgba(67,70,85,0.2)',
   },
   backButton: {
     padding: spacing.sm,
   },
   backIcon: {
-    color: '#fafafa',
+    color: '#e5e1e4',
     fontSize: 20,
   },
   title: {
     ...typography.lg,
-    color: '#fafafa',
-    fontWeight: '600',
+    color: '#adc6ff',
+    fontWeight: '700',
     marginLeft: spacing.sm,
     flex: 1,
   },
@@ -208,87 +218,108 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
   },
   addText: {
-    color: '#fafafa',
+    color: '#adc6ff',
     fontSize: 24,
     fontWeight: '300',
   },
-  saveButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
+  deleteHeaderButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  saveText: {
-    color: colors.primaryForeground,
-    fontWeight: '600',
+  deleteHeaderText: {
+    color: '#ffb4ab',
+    fontWeight: '700',
     ...typography.base,
   },
-  separator: {
-    height: 1,
-    backgroundColor: '#27272a',
-    marginHorizontal: spacing.md,
+  listContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
   },
-  skillRow: {
+  heroSection: {
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md + 4,
+  },
+  heroHeading: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#e5e1e4',
+    letterSpacing: -0.5,
+    marginBottom: spacing.sm,
+  },
+  heroDescription: {
+    ...typography.base,
+    color: '#c3c6d7',
+    lineHeight: 22,
+  },
+  skillCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
+    backgroundColor: '#1c1b1d',
+    borderRadius: radius.lg,
+    padding: 20,
+    marginBottom: 10,
   },
-  skillRowContent: {
+  skillCardContent: {
     flex: 1,
+    paddingRight: spacing.sm,
   },
   skillName: {
-    ...typography.base,
-    color: '#fafafa',
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#e5e1e4',
+    marginBottom: 4,
   },
   skillSummary: {
     ...typography.sm,
-    color: colors.mutedForeground,
-    marginTop: 2,
+    color: '#c3c6d7',
   },
   chevron: {
-    color: colors.mutedForeground,
-    fontSize: 18,
-    marginLeft: spacing.sm,
+    color: '#8d90a0',
+    fontSize: 22,
   },
   emptyText: {
     ...typography.base,
-    color: colors.mutedForeground,
+    color: '#c3c6d7',
     textAlign: 'center',
     marginTop: spacing.md * 3,
   },
   formContent: {
     padding: spacing.md,
+    paddingBottom: spacing.xl,
   },
   label: {
-    ...typography.sm,
-    color: colors.mutedForeground,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#adc6ff',
+    letterSpacing: 1.5,
     marginBottom: spacing.xs,
     marginTop: spacing.md,
+    marginLeft: 2,
   },
   input: {
-    backgroundColor: '#18181b',
+    backgroundColor: '#0e0e10',
     borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(67,70,85,0.3)',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: '#fafafa',
+    paddingVertical: spacing.sm + 4,
+    color: '#e5e1e4',
     ...typography.base,
   },
   instructionsInput: {
     minHeight: 200,
   },
-  deleteButton: {
-    marginTop: spacing.md * 2,
-    paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
+  saveButton: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.md,
+    backgroundColor: '#0f69dc',
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: '#7f1d1d',
+    alignItems: 'center',
   },
-  deleteText: {
-    color: '#ef4444',
-    fontWeight: '600',
-    ...typography.base,
+  saveText: {
+    color: '#ecf0ff',
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: 0.3,
   },
 });
