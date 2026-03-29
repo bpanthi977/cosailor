@@ -57,9 +57,9 @@ function stepLabel(step: ToolStep): string {
   const a = step.args as Record<string, string>;
   switch (step.name) {
     case 'fetch_notes':
-      return `Fetching notes for ${a.customer_name ?? '…'}`;
+      return `Fetching notes for ${a.customer_name ?? '...'}`;
     case 'save_note':
-      return `Saving note for ${a.customer_name ?? '…'}`;
+      return `Saving note for ${a.customer_name ?? '...'}`;
     case 'list_customers':
       return 'Looking up customers';
     case 'read_skill':
@@ -97,9 +97,9 @@ export default function MessageBubble({ message, cursorVisible, onRetry }: Props
   let thinkingSteps = '';
   if (!isUser && lastStep) {
     if (message.content == '')
-      thinkingSteps = '*' + stepLabel(lastStep) + '*';
+      thinkingSteps = stepLabel(lastStep);
     else if (lastStep.status == 'running')
-      thinkingSteps = '\n*' + stepLabel(lastStep) + '*';
+      thinkingSteps = '\n' + stepLabel(lastStep);
   }
   
   return (
