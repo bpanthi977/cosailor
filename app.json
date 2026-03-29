@@ -3,6 +3,7 @@
     "name": "cosailor",
     "slug": "cosailor",
     "version": "1.0.0",
+    "icon": "./icon.png",
     "plugins": [
       "expo-sqlite",
       [
